@@ -148,5 +148,6 @@ Git so reported results cannot be overwritten accidentally.
 
 ## Citation, DOI and license
 
-Citation metadata are provided in `CITATION.cff`. Add the final article DOI,
-repository URL and Zenodo DOI after they have been assigned.
+Citation metadata are provided in `CITATION.cff`. 
+License file is provided in 'LICENSE'
+If you use this repository, please cite: ""
