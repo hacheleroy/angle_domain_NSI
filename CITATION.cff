@@ -9,6 +9,7 @@ authors:
     affiliation: "Ecole Polytechnique Federale de Lausanne (EPFL)"
 version: 1.0.0
 date-released: 2026-08-18
+url: "https://github.com/hacheleroy/angle_domain_NSI"
 preferred-citation:
   type: article
   authors:
@@ -16,4 +17,8 @@ preferred-citation:
       given-names: Henri
       orcid: "https://orcid.org/0009-0009-7215-6796"
   title: "Angle-domain null subtraction imaging from beamformed plane-wave data"
-
+  journal: "arXiv preprint"
+  year: 2026
+  eprint: "2608.XXXXX"   
+  archivePrefix: "arXiv"
+  primaryClass: "physics.med-ph" 
