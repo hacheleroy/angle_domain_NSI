@@ -45,8 +45,7 @@ python -m pip install -r requirements.txt
 `requirements.txt` selects the CUDA 12 CuPy wheel used for the reported
 benchmark. On another CUDA major version, install the corresponding CuPy
 package instead. The CPU-only tests require only NumPy, SciPy and Matplotlib
-and can instead be installed with `requirements-test.txt`. A matching GitHub
-Actions workflow is included under `.github/workflows/`.
+and can instead be installed with `requirements-test.txt`.
 
 ## Verify the installation
 
