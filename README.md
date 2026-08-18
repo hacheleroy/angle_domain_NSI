@@ -150,7 +150,3 @@ Git so reported results cannot be overwritten accidentally.
 
 Citation metadata are provided in `CITATION.cff`. Add the final article DOI,
 repository URL and Zenodo DOI after they have been assigned.
-
-No software license is included yet. Before making the repository public, the
-author and institution should select a license; without one, others may inspect
-the code but do not receive general permission to reuse or redistribute it.
