@@ -149,7 +149,7 @@ Git so reported results cannot be overwritten accidentally.
 ## Citation, DOI and license
 
 License file is provided in 'LICENSE'. Citation metadata are provided in `CITATION.cff`. 
-If you find this code or method useful in your research, please cite our paper:
+If you find this code or method useful in your research, please cite the paper:
 
 ```bibtex
 @article{leroy2026angledomain,
