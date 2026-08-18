@@ -2,9 +2,7 @@
 Ultrafast Doppler imaging pipeline using a common CuPy DAS implementation:
 DAS versus conventional receive-domain NSI versus angular NSI.
 
-Ported from angular_NSI_PowerDoppler_MBtrace.m (MATLAB / MUST pipeline),
-with das_localNSI.m + ApodGen.m ported into a custom CuPy delay-and-sum.
-The uniform per-angle image and the receive zero-mean field share exactly the
+Custom CuPy delay-and-sum. The uniform per-angle image and the receive zero-mean field share exactly the
 same delays, interpolation and dynamic aperture.
 
 Status:
@@ -14,8 +12,7 @@ Status:
                       custom delay-and-sum that reproduces das_localNSI.m's
                       per-pixel dynamic receive sub-aperture split (quantized,
                       symmetric, matching ApodGen.m), applied identically
-                      across all TX angles then compounded -- exactly as
-                      in your MATLAB script. The two DC fields are derived
+                      across all TX angles then compounded. The two DC fields are derived
                       algebraically from the uniform and zero-mean fields.
 
 """
