@@ -1,0 +1,45 @@
+# --- Repository-specific outputs -------------------------------------------
+# New script runs write here by default (see results/README.md).
+# results/reported/ stays tracked as the immutable manuscript record and
+# must never be silently overwritten by a fresh run.
+results/generated/
+
+# --- External data (see data/README.md) -------------------------------------
+# PICMUS and Open-NSI datasets are not redistributed; each user places them
+# locally. The MBTrace .npy cache is created beside the .mat file.
+data/PICMUS/
+data/Open-NSI/
+data/**/*.mat
+data/**/*.hdf5
+data/**/*.h5
+data/**/*.npy
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- Virtual environments -----------------------------------------------------
+.venv/
+venv/
+env/
+
+# --- Test / cache artifacts ----------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Editors / OS ----------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Jupyter (in case notebooks are added later) ----------------------------------
+.ipynb_checkpoints/
