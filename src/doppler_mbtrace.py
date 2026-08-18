@@ -60,7 +60,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 angle_min = -4.0
 angle_max = 4.0
 
-# NSI dc offset (matches `dc = 0.1` in the MATLAB script / BeamformPara.DCOffset)
+# NSI dc offset 
 dc_offset = 0.1
 
 # SVD cutoffs -- confirmed correct as-is (indexed from opposite ends of the
@@ -282,8 +282,7 @@ M_dc2_conv = -M_zm_conv + dc_offset * M_u_conv
 # ---------------------------------------------------------------
 # 5. Spatiotemporal SVD Filtering
 #    Both NSI variants use a JOINT Casorati matrix across their three
-#    apodization channels (concatenated along the spatial axis), matching
-#    the joint SVD you validated in MATLAB (same `cutoff` for both).
+#    apodization channels (concatenated along the spatial axis).
 # ---------------------------------------------------------------
 print("Applying SVD clutter filtering...")
 
@@ -439,7 +438,7 @@ fig.savefig(png_out, dpi=300, bbox_inches="tight")
 plt.close(fig)
 print(f"Saved comparison figure with matched trace identifiers to {png_out}")
 
-# Difference map (mirrors MATLAB's `imagesc(abs(pd_conv-pd_angular))`)
+# Difference map
 # fig2, ax2 = plt.subplots(figsize=(6, 6), dpi=300)
 # im_diff = ax2.imshow(cp.abs(pd_conv - pd_angular).get().T, extent=extent, aspect="equal")
 # ax2.set_xlabel("Lateral [mm]")
