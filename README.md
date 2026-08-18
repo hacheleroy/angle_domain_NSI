@@ -132,7 +132,7 @@ the matched trace-width measurements from `src/trace_width_analysis.py`.
 
 ## Interpretation and provenance
 
-- Reported widths are connected main-lobe widths at -6.0206 dB in amplitude.
+- Reported widths are connected main-lobe widths at -6 dB in amplitude.
 - The very narrow conventional-NSI value is explicitly described as an
   apparent nonlinear-output width, not a conventional linear-system PSF.
 - Conventional NSI is implemented from two independent complex fields,
