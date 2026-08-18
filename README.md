@@ -150,4 +150,3 @@ Git so reported results cannot be overwritten accidentally.
 
 Citation metadata are provided in `CITATION.cff`. 
 License file is provided in 'LICENSE'
-If you use this repository, please cite: ""
