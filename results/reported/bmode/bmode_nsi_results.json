@@ -1,0 +1,343 @@
+{
+  "script": "B_Mode_NSI_v4.py",
+  "schema_version": 1,
+  "run_started_utc": "2026-08-13T13:02:34.766274+00:00",
+  "metric_definitions": {
+    "CR_dB": "20*log10(mean background / mean signal), linear envelope",
+    "CNR": "abs(mean background - mean signal) / sqrt(var background + var signal), linear envelope",
+    "gCNR": "1 minus overlap of normalized signal/background histograms, normalized dB image",
+    "standard_deviation": "population standard deviation (ddof=0)"
+  },
+  "reconstruction_parameters": {
+    "f_number": 1.0,
+    "carrier_frequency_hz": 5208333.0,
+    "nsi_dc_offset": 0.05,
+    "gcnr_histogram_bins": 100,
+    "grid_nx": 128,
+    "grid_nz": 250,
+    "grid_x_min_m": -0.019200000911951065,
+    "grid_x_max_m": 0.019200000911951065,
+    "grid_z_min_m": 0.0,
+    "grid_z_max_m": 0.03999999910593033,
+    "display_min_db": -60.0,
+    "display_max_db": 0.0,
+    "angular_zero_mean_weights": "sign(angle), with broadside weight zero",
+    "interpolation": "linear between adjacent IQ samples"
+  },
+  "views": [
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "dataset_file": "/mnt/c/Users/hjleroy/Documents/Codes/PICMUS/in_vivo/carotid_long/carotid_long_expe_dataset_rf.hdf5",
+      "acquisition_metadata": {
+        "samples": 1536,
+        "elements": 128,
+        "angles": 75,
+        "angle_min_deg": -15.999999046325684,
+        "angle_max_deg": 15.999999046325684,
+        "sampling_frequency_hz": 20832000.0,
+        "carrier_frequency_hz": 5208333.0,
+        "sound_speed_m_per_s": 1540.0,
+        "pitch_m": 0.0003000000142492354,
+        "initial_time_s": 0.0
+      },
+      "roi": {
+        "signal": {
+          "role": "vessel lumen",
+          "center_cm": [
+            -0.7,
+            1.54
+          ],
+          "radius_cm": 0.3,
+          "pixel_count": 585
+        },
+        "background": {
+          "role": "surrounding tissue",
+          "center_cm": [
+            0.2,
+            2.7
+          ],
+          "radius_cm": 0.3,
+          "pixel_count": 580
+        }
+      },
+      "beamforming_seconds": 24.016469595000217,
+      "metrics": [
+        {
+          "method": "DAS",
+          "gcnr": 0.960536398467433,
+          "contrast_ratio_db": 28.343908309936523,
+          "cnr": 1.1959353685379028,
+          "signal_roi_linear": {
+            "pixel_count": 585,
+            "mean": 1.0933089068302742,
+            "standard_deviation": 0.8014649778588818,
+            "median": 0.9306718707084656,
+            "minimum": 0.036629222333431244,
+            "maximum": 6.56063175201416
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 28.571842179421722,
+            "standard_deviation": 22.962619435713265,
+            "median": 21.78375816345215,
+            "minimum": 1.6262127161026,
+            "maximum": 140.5591583251953
+          },
+          "signal_roi_db": {
+            "pixel_count": 585,
+            "mean": -55.890411434337366,
+            "standard_deviation": 6.7464019131909145,
+            "median": -55.043081616905525,
+            "minimum": -83.1424594034666,
+            "maximum": -38.080100140389874
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -27.95518283395469,
+            "standard_deviation": 7.158952949821477,
+            "median": -27.65635825262268,
+            "minimum": -50.19546631680834,
+            "maximum": -11.461830412208343
+          }
+        },
+        {
+          "method": "Receive NSI",
+          "gcnr": 0.5838638373121132,
+          "contrast_ratio_db": 29.67664909362793,
+          "cnr": 0.4277360141277313,
+          "signal_roi_linear": {
+            "pixel_count": 585,
+            "mean": 0.0012137027728014295,
+            "standard_deviation": 0.0022009070406415645,
+            "median": 0.0004564523696899414,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.024684637784957886
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 0.03697811015721198,
+            "standard_deviation": 0.08358430172280948,
+            "median": 0.008633613586425781,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.9134782552719116
+          },
+          "signal_roi_db": {
+            "pixel_count": 585,
+            "mean": -84.84691362224603,
+            "standard_deviation": 19.153114284031407,
+            "median": -81.47499449265034,
+            "minimum": -254.66290384887986,
+            "maximum": -46.81436863629098
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -58.48437299180235,
+            "standard_deviation": 21.85768726965765,
+            "median": -55.93914075055638,
+            "minimum": -254.66290384887986,
+            "maximum": -15.448939539631331
+          }
+        },
+        {
+          "method": "Angle NSI",
+          "gcnr": 0.5701296787503685,
+          "contrast_ratio_db": 27.38174057006836,
+          "cnr": 0.4894043505191803,
+          "signal_roi_linear": {
+            "pixel_count": 585,
+            "mean": 0.00158552315373029,
+            "standard_deviation": 0.0046402917218530005,
+            "median": 0.0004801750183105469,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.06583722680807114
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 0.037090230604704816,
+            "standard_deviation": 0.07239822137612437,
+            "median": 0.010110855102539062,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.6313495635986328
+          },
+          "signal_roi_db": {
+            "pixel_count": 585,
+            "mean": -85.83135723171551,
+            "standard_deviation": 21.956692514551108,
+            "median": -81.65818421439508,
+            "minimum": -255.28617548130245,
+            "maximum": -38.916744861355866
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -59.34218167509592,
+            "standard_deviation": 25.269621545039872,
+            "median": -55.19087679045587,
+            "minimum": -255.28617548130245,
+            "maximum": -19.280777754378754
+          }
+        }
+      ],
+      "view_processing_seconds": 27.1056643310003,
+      "figure_file": "/home/hjleroy/projects/ultrafast-imaging/angularNSI/outputs/Fig_BMode_NSI_Comparison_CL.png"
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "dataset_file": "/mnt/c/Users/hjleroy/Documents/Codes/PICMUS/in_vivo/carotid_cross/carotid_cross_expe_dataset_rf.hdf5",
+      "acquisition_metadata": {
+        "samples": 1536,
+        "elements": 128,
+        "angles": 75,
+        "angle_min_deg": -15.999999046325684,
+        "angle_max_deg": 15.999999046325684,
+        "sampling_frequency_hz": 20832000.0,
+        "carrier_frequency_hz": 5208333.0,
+        "sound_speed_m_per_s": 1540.0,
+        "pitch_m": 0.0003000000142492354,
+        "initial_time_s": 0.0
+      },
+      "roi": {
+        "signal": {
+          "role": "vessel lumen",
+          "center_cm": [
+            -0.13,
+            1.77
+          ],
+          "radius_cm": 0.3,
+          "pixel_count": 583
+        },
+        "background": {
+          "role": "surrounding tissue",
+          "center_cm": [
+            -0.1,
+            2.7
+          ],
+          "radius_cm": 0.3,
+          "pixel_count": 580
+        }
+      },
+      "beamforming_seconds": 23.181736264999927,
+      "metrics": [
+        {
+          "method": "DAS",
+          "gcnr": 0.733397409357071,
+          "contrast_ratio_db": 19.101795196533203,
+          "cnr": 0.8301690816879272,
+          "signal_roi_linear": {
+            "pixel_count": 583,
+            "mean": 1.360672823228517,
+            "standard_deviation": 1.368873334133176,
+            "median": 0.9281163215637207,
+            "minimum": 0.010056264698505402,
+            "maximum": 12.607897758483887
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 12.269968381524086,
+            "standard_deviation": 13.069561952748389,
+            "median": 7.621294021606445,
+            "minimum": 0.36267274618148804,
+            "maximum": 82.9815673828125
+          },
+          "signal_roi_db": {
+            "pixel_count": 583,
+            "mean": -54.834639157260845,
+            "standard_deviation": 8.16952262955739,
+            "median": -54.638638749295026,
+            "minimum": -93.941953027018,
+            "maximum": -31.97783338490793
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -36.29459509764356,
+            "standard_deviation": 8.590781126017584,
+            "median": -36.350116563187186,
+            "minimum": -62.800388535023316,
+            "maximum": -15.611054278103133
+          }
+        },
+        {
+          "method": "Receive NSI",
+          "gcnr": 0.47533565978588754,
+          "contrast_ratio_db": 21.81674575805664,
+          "cnr": 0.40227121114730835,
+          "signal_roi_linear": {
+            "pixel_count": 583,
+            "mean": 0.0011760836553461487,
+            "standard_deviation": 0.0024356076634850644,
+            "median": 0.00031578540802001953,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.024076074361801147
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 0.014496907077990067,
+            "standard_deviation": 0.03302433955661464,
+            "median": 0.0034368038177490234,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.397430419921875
+          },
+          "signal_roi_db": {
+            "pixel_count": 583,
+            "mean": -84.94032283410122,
+            "standard_deviation": 22.638052142671114,
+            "median": -81.71532952892775,
+            "minimum": -251.70317072414812,
+            "maximum": -44.071457168947845
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -63.119929226940776,
+            "standard_deviation": 21.8636430763839,
+            "median": -60.98017535514882,
+            "minimum": -251.70317072414812,
+            "maximum": -19.717948577468132
+          }
+        },
+        {
+          "method": "Angle NSI",
+          "gcnr": 0.44925178919973974,
+          "contrast_ratio_db": 20.217514038085938,
+          "cnr": 0.36647987365722656,
+          "signal_roi_linear": {
+            "pixel_count": 583,
+            "mean": 0.0016972886248307155,
+            "standard_deviation": 0.005130813683492352,
+            "median": 0.0003400146961212158,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.08808885514736176
+          },
+          "background_roi_linear": {
+            "pixel_count": 580,
+            "mean": 0.017403291885198555,
+            "standard_deviation": 0.04254815192693183,
+            "median": 0.0039727091789245605,
+            "minimum": 9.999999960041972e-13,
+            "maximum": 0.4495401382446289
+          },
+          "signal_roi_db": {
+            "pixel_count": 583,
+            "mean": -84.60309275047116,
+            "standard_deviation": 22.2007165237726,
+            "median": -82.32272290719841,
+            "minimum": -252.95267671253984,
+            "maximum": -34.05425736411461
+          },
+          "background_roi_db": {
+            "pixel_count": 580,
+            "mean": -64.53451167274676,
+            "standard_deviation": 23.071889482785345,
+            "median": -60.97094860122628,
+            "minimum": -252.95267671253984,
+            "maximum": -19.89730718181319
+          }
+        }
+      ],
+      "view_processing_seconds": 24.79779152099991,
+      "figure_file": "/home/hjleroy/projects/ultrafast-imaging/angularNSI/outputs/Fig_BMode_NSI_Comparison_CC.png"
+    }
+  ],
+  "run_completed_utc": "2026-08-13T13:03:26.675208+00:00",
+  "total_execution_seconds": 51.9089351990001
+}

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated article."
+title: "Angle-domain null subtraction imaging"
+type: software
+authors:
+  - family-names: Leroy
+    given-names: Henri
+    orcid: "https://orcid.org/0009-0009-7215-6796"
+    affiliation: "Ecole Polytechnique Federale de Lausanne (EPFL)"
+version: 1.0.0
+date-released: 2026-08-17
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Leroy
+      given-names: Henri
+      orcid: "https://orcid.org/0009-0009-7215-6796"
+  title: "Angle-domain null subtraction imaging from beamformed plane-wave data"
+  journal: "Physics in Medicine & Biology"
+  year: 2026
+

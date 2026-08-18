@@ -1,0 +1,282 @@
+{
+  "depth_mm": 10.958579881656803,
+  "parameters": {
+    "prominence_db": 6.0,
+    "min_distance_mm": 0.2,
+    "min_height_db": -25.0,
+    "matching_tolerance_mm": 0.15,
+    "width_level_db_below_local_peak": 6.0,
+    "width_crossing_interpolation": "linear",
+    "standard_deviation": "sample (ddof=1)"
+  },
+  "counts": {
+    "das_detected": 6,
+    "receive_nsi_detected": 6,
+    "angle_nsi_detected": 7,
+    "das_matched_to_receive_nsi": 5,
+    "das_matched_to_angle_nsi": 3,
+    "complete_triplets": 3
+  },
+  "fractions": {
+    "das_matched_to_receive_nsi": 0.8333333333333334,
+    "das_matched_to_angle_nsi": 0.5,
+    "das_in_complete_triplets": 0.5
+  },
+  "width_summary": {
+    "das": {
+      "mean_mm": 0.26634560702207705,
+      "sample_sd_mm": 0.05556542673582735
+    },
+    "receive_nsi": {
+      "mean_mm": 0.13259594612087003,
+      "sample_sd_mm": 0.0383350907853537
+    },
+    "angle_nsi": {
+      "mean_mm": 0.18407224516662493,
+      "sample_sd_mm": 0.1026664123751554
+    }
+  },
+  "detected_peaks": {
+    "das": [
+      {
+        "sample_index": 9,
+        "x_mm": -5.092436974789916,
+        "peak_db": -13.980974834712413,
+        "left_crossing_mm": -5.285651761580707,
+        "right_crossing_mm": -4.91441238379284,
+        "width_mm": 0.37123937778786686
+      },
+      {
+        "sample_index": 22,
+        "x_mm": -3.7815126050420167,
+        "peak_db": -12.431302292638165,
+        "left_crossing_mm": -3.957441204201945,
+        "right_crossing_mm": -3.698134648911372,
+        "width_mm": 0.2593065552905731
+      },
+      {
+        "sample_index": 38,
+        "x_mm": -2.168067226890756,
+        "peak_db": -18.156765888529222,
+        "left_crossing_mm": -2.2208662069737435,
+        "right_crossing_mm": -1.9369507123335907,
+        "width_mm": 0.28391549464015275
+      },
+      {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -12.161966902196468,
+        "left_crossing_mm": 2.415096243663777,
+        "right_crossing_mm": 2.6202355239331907,
+        "width_mm": 0.20513928026941386
+      },
+      {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -4.386792568176176,
+        "left_crossing_mm": 2.957693203495505,
+        "right_crossing_mm": 3.271310981735392,
+        "width_mm": 0.313617778239887
+      },
+      {
+        "sample_index": 98,
+        "x_mm": 3.8823529411764706,
+        "peak_db": -13.834314028310985,
+        "left_crossing_mm": 3.79246541924256,
+        "right_crossing_mm": 4.07274518179949,
+        "width_mm": 0.2802797625569302
+      }
+    ],
+    "receive_nsi": [
+      {
+        "sample_index": 8,
+        "x_mm": -5.19327731092437,
+        "peak_db": -6.804203138814998,
+        "left_crossing_mm": -5.228412572242441,
+        "right_crossing_mm": -5.146094567752138,
+        "width_mm": 0.08231800449030224
+      },
+      {
+        "sample_index": 38,
+        "x_mm": -2.168067226890756,
+        "peak_db": -22.3074470605736,
+        "left_crossing_mm": -2.201307750410483,
+        "right_crossing_mm": -2.126114645350107,
+        "width_mm": 0.07519310506037602
+      },
+      {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -19.10397153755501,
+        "left_crossing_mm": 2.4996022111322764,
+        "right_crossing_mm": 2.6022645151997716,
+        "width_mm": 0.10266230406749521
+      },
+      {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -9.970666400618057,
+        "left_crossing_mm": 3.01646018082279,
+        "right_crossing_mm": 3.1357818079333972,
+        "width_mm": 0.11932162711060723
+      },
+      {
+        "sample_index": 99,
+        "x_mm": 3.9831932773109235,
+        "peak_db": -20.963677479767703,
+        "left_crossing_mm": 3.8480452426557554,
+        "right_crossing_mm": 4.023849149840263,
+        "width_mm": 0.17580390718450767
+      },
+      {
+        "sample_index": 111,
+        "x_mm": 5.193277310924369,
+        "peak_db": -20.007290533866396,
+        "left_crossing_mm": 5.142741929128093,
+        "right_crossing_mm": 5.254545142321987,
+        "width_mm": 0.11180321319389463
+      }
+    ],
+    "angle_nsi": [
+      {
+        "sample_index": 11,
+        "x_mm": -4.890756302521009,
+        "peak_db": -22.841660953638154,
+        "left_crossing_mm": -5.039793186329306,
+        "right_crossing_mm": -4.8032053149531,
+        "width_mm": 0.23658787137620596
+      },
+      {
+        "sample_index": 24,
+        "x_mm": -3.579831932773109,
+        "peak_db": -18.13395561341308,
+        "left_crossing_mm": -3.637668831234289,
+        "right_crossing_mm": -3.5340929547234015,
+        "width_mm": 0.10357587651088762
+      },
+      {
+        "sample_index": 41,
+        "x_mm": -1.865546218487395,
+        "peak_db": -24.85104442476299,
+        "left_crossing_mm": -2.0425448881343433,
+        "right_crossing_mm": -1.8228338399780444,
+        "width_mm": 0.21971104815629894
+      },
+      {
+        "sample_index": 82,
+        "x_mm": 2.2689075630252105,
+        "peak_db": -24.647272962671664,
+        "left_crossing_mm": 2.195127882557128,
+        "right_crossing_mm": 2.3654501477587817,
+        "width_mm": 0.1703222652016536
+      },
+      {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -13.566717249624887,
+        "left_crossing_mm": 2.5180880959335785,
+        "right_crossing_mm": 2.6075397839552577,
+        "width_mm": 0.08945168802167913
+      },
+      {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -7.448072374228531,
+        "left_crossing_mm": 3.0119271349838135,
+        "right_crossing_mm": 3.3051611328700203,
+        "width_mm": 0.29323399788620685
+      },
+      {
+        "sample_index": 99,
+        "x_mm": 3.9831932773109235,
+        "peak_db": -14.998973008382123,
+        "left_crossing_mm": 3.8648894613394273,
+        "right_crossing_mm": 4.034420510931416,
+        "width_mm": 0.16953104959198884
+      }
+    ]
+  },
+  "complete_matches": [
+    {
+      "match_id": 1,
+      "das": {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -12.161966902196468,
+        "left_crossing_mm": 2.415096243663777,
+        "right_crossing_mm": 2.6202355239331907,
+        "width_mm": 0.20513928026941386
+      },
+      "receive_nsi": {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -19.10397153755501,
+        "left_crossing_mm": 2.4996022111322764,
+        "right_crossing_mm": 2.6022645151997716,
+        "width_mm": 0.10266230406749521
+      },
+      "angle_nsi": {
+        "sample_index": 85,
+        "x_mm": 2.5714285714285716,
+        "peak_db": -13.566717249624887,
+        "left_crossing_mm": 2.5180880959335785,
+        "right_crossing_mm": 2.6075397839552577,
+        "width_mm": 0.08945168802167913
+      }
+    },
+    {
+      "match_id": 2,
+      "das": {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -4.386792568176176,
+        "left_crossing_mm": 2.957693203495505,
+        "right_crossing_mm": 3.271310981735392,
+        "width_mm": 0.313617778239887
+      },
+      "receive_nsi": {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -9.970666400618057,
+        "left_crossing_mm": 3.01646018082279,
+        "right_crossing_mm": 3.1357818079333972,
+        "width_mm": 0.11932162711060723
+      },
+      "angle_nsi": {
+        "sample_index": 90,
+        "x_mm": 3.0756302521008414,
+        "peak_db": -7.448072374228531,
+        "left_crossing_mm": 3.0119271349838135,
+        "right_crossing_mm": 3.3051611328700203,
+        "width_mm": 0.29323399788620685
+      }
+    },
+    {
+      "match_id": 3,
+      "das": {
+        "sample_index": 98,
+        "x_mm": 3.8823529411764706,
+        "peak_db": -13.834314028310985,
+        "left_crossing_mm": 3.79246541924256,
+        "right_crossing_mm": 4.07274518179949,
+        "width_mm": 0.2802797625569302
+      },
+      "receive_nsi": {
+        "sample_index": 99,
+        "x_mm": 3.9831932773109235,
+        "peak_db": -20.963677479767703,
+        "left_crossing_mm": 3.8480452426557554,
+        "right_crossing_mm": 4.023849149840263,
+        "width_mm": 0.17580390718450767
+      },
+      "angle_nsi": {
+        "sample_index": 99,
+        "x_mm": 3.9831932773109235,
+        "peak_db": -14.998973008382123,
+        "left_crossing_mm": 3.8648894613394273,
+        "right_crossing_mm": 4.034420510931416,
+        "width_mm": 0.16953104959198884
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Versions recorded by the manuscript timing benchmark
+numpy==2.2.6
+matplotlib==3.10.9
+cupy-cuda12x==14.1.1
+mach-beamform==0.1.3
+
+# Additional dependencies used by the simulation and data pipelines
+scipy>=1.13
+h5py>=3.10
+imageio[ffmpeg]>=2.34
+PyMUST
+
