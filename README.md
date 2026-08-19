@@ -154,6 +154,5 @@ If you find this code or method useful in your research, please cite the paper:
 @article{leroy2026angledomain,
   title={Angle-domain null subtraction imaging from beamformed plane-wave data},
   author={Henri Leroy},
-  journal={arXiv preprint arXiv:2608.XXXXX},
   year={2026}
 }
