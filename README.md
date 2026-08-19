@@ -156,5 +156,6 @@ If you find this code or method useful in your research, please cite the paper:
   author={Henri Leroy},
   year={2026}
 }
+```
 
 Don't forget to also cite the papers of MUST/pyMUST simulator, MACH beamformer, Open-NSI and PICMUS datasets if you use them !
