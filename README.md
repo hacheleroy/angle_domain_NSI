@@ -147,10 +147,13 @@ The committed CSV and JSON files under `results/reported/` are the values used
 in the manuscript. New runs write to `results/generated/`, which is ignored by
 Git so reported results cannot be overwritten accidentally.
 
-## Citation, DOI and license
+## Citation and licenses
 
-Source code is licensed under the MIT License (LICENSE). 
-Committed result records are licensed under CC BY 4.0 (LICENSE-DATA). External datasets retain their original licenses and are not redistributed. 
+Source code is licensed under the MIT License ([`LICENSE`](LICENSE)).
+Committed result records under `results/` are licensed under the Creative
+Commons Attribution 4.0 International License
+([`LICENSE-DATA`](LICENSE-DATA)). External datasets are not redistributed and
+remain subject to their original terms.
 Citation metadata are provided in `CITATION.cff`. 
 If you find this code or method useful in your research, please cite the paper:
 
