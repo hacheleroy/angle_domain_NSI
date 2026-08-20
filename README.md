@@ -147,7 +147,9 @@ Git so reported results cannot be overwritten accidentally.
 
 ## Citation, DOI and license
 
-License file is provided in 'LICENSE'. Citation metadata are provided in `CITATION.cff`. 
+Source code is licensed under the MIT License (LICENSE). 
+Committed result records are licensed under CC BY 4.0 (LICENSE-DATA). External datasets retain their original licenses and are not redistributed. 
+Citation metadata are provided in `CITATION.cff`. 
 If you find this code or method useful in your research, please cite the paper:
 
 ```bibtex
