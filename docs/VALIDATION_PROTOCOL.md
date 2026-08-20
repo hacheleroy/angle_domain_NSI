@@ -1,9 +1,6 @@
 # NSI validation protocol
 
-These scripts implement mandatory items 4 and 5 of the PMB revision report.
-They do not edit the manuscript. Run them on the same workstation and software
-environment used for the revised reconstructions, then return the complete
-output directories for integration into the Note and supplementary material.
+These scripts reproduce the synchronized timing benchmark and robustness analyses reported in the manuscript and supplementary material. 
 
 ## Files
 
@@ -98,7 +95,7 @@ python src/benchmark_nsi.py \
 The optional `--include-naive-reference` adds a clearly labelled three-field
 receive implementation. It must not be used as the optimized comparator.
 
-Return these files:
+The generated files include:
 
 - `nsi_timing_runs.csv`
 - `nsi_timing_summary.csv`
