@@ -32,7 +32,7 @@ python src/simulation_robustness.py \
 The two GPU scripts require the same CuPy, PyMUST and mach-beamform environment
 as `src/simulation_point_target.py`. The timing script does not require PyMUST.
 
-## 2. Full fair timing benchmark (mandatory item 4)
+## 2. Full fair timing benchmark
 
 Recommended command:
 
@@ -105,7 +105,7 @@ The generated files include:
 The JSON records GPU/CPU models, CUDA and package versions, precision, grid,
 element and angle counts, transfer scope and image-storage policy.
 
-## 3. Full robustness study (mandatory item 5)
+## 3. Full robustness study 
 
 Recommended command:
 
@@ -137,7 +137,7 @@ The full study can be long because it performs new RF simulations and uses a
 individual `--skip-*` switches are useful for diagnosis, but a partial run is
 marked non-publication-ready in `robustness_summary.json`.
 
-Return the whole output directory, particularly:
+the generated output directory includes:
 
 - `robustness_summary.json`
 - `robustness_angle_sweeps.csv` and `.png`
