@@ -4,6 +4,8 @@ Reproducibility code and reported numerical outputs for the manuscript
 "Angle-domain null subtraction imaging from beamformed plane-wave data" by
 Henri Leroy.
 
+**Preprint:** [arXiv:2608.18252](https://arxiv.org/abs/2608.18252)
+
 The repository compares three reconstructions:
 
 1. delay-and-sum (DAS) with coherent plane-wave compounding;
