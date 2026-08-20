@@ -137,7 +137,7 @@ The full study can be long because it performs new RF simulations and uses a
 individual `--skip-*` switches are useful for diagnosis, but a partial run is
 marked non-publication-ready in `robustness_summary.json`.
 
-the generated output directory includes:
+The generated output directory includes:
 
 - `robustness_summary.json`
 - `robustness_angle_sweeps.csv` and `.png`
