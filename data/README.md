@@ -4,6 +4,9 @@ The experimental data are not redistributed in this repository.
 
 ## PICMUS carotid acquisitions
 
+The original data are available from the
+[PICMUS download page](https://www.creatis.insa-lyon.fr/Challenge/IEEE_IUS_2016/download).
+
 Set `PICMUS_DATA_DIR` to the directory containing this layout:
 
 ```text
@@ -18,8 +21,11 @@ the file-specific variables `PICMUS_CC_FILE` and `PICMUS_CL_FILE`.
 
 ## Open-NSI MBTrace acquisition
 
-Obtain `Basic/data/MBTrace.mat` from the Open-NSI project. Set
-`OPEN_NSI_MBTRACE_FILE` to the downloaded file, or place it at:
+The acquisition is distributed through the
+[Open-NSI repository](https://github.com/ZhengchangKou/Open-NSI), whose README
+provides the example-data download link.
+
+Set `OPEN_NSI_MBTRACE_FILE` to the downloaded file, or place it at:
 
 ```text
 data/Open-NSI/Basic/data/MBTrace.mat
