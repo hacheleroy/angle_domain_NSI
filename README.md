@@ -159,4 +159,4 @@ If you find this code or method useful in your research, please cite the paper:
 }
 ```
 
-Don't forget to also cite the papers of SIMUS/MUST/pyMUST simulator, MACH beamformer, Open-NSI and PICMUS datasets if you use them !
+Don't forget to also cite the papers of SIMUS/MUST/pyMUST, MACH beamformer, Open-NSI and PICMUS datasets if you use them !
