@@ -42,6 +42,21 @@ class MatchedPeak:
     angle_nsi: PeakWidth
 
 
+@dataclass(frozen=True)
+class PeakDisplacement:
+    """Auditable reference-to-target peak correspondence diagnosis."""
+
+    reference_index: int
+    reference_x_mm: float
+    target_index: int | None
+    target_x_mm: float | None
+    signed_displacement_mm: float | None
+    absolute_displacement_mm: float | None
+    status: str
+    possible_split: bool
+    possible_merge: bool
+
+
 def _crossing_position(
     x1: float,
     y1: float,
@@ -159,6 +174,210 @@ def _one_to_one_pairs(
     }
 
 
+def match_to_reference(
+    reference: Sequence[PeakWidth],
+    target: Sequence[PeakWidth],
+    *,
+    tolerance_mm: float,
+) -> dict[int, int]:
+    """Public one-to-one matcher used for tolerance-sensitivity analysis."""
+
+    if not np.isfinite(tolerance_mm) or tolerance_mm < 0.0:
+        raise ValueError("tolerance_mm must be finite and nonnegative.")
+    return _one_to_one_pairs(reference, target, float(tolerance_mm))
+
+
+def matching_tolerance_sweep(
+    reference: Sequence[PeakWidth],
+    target: Sequence[PeakWidth],
+    tolerances_mm: Sequence[float],
+) -> list[dict[str, float | int | None]]:
+    """Quantify positional concordance over matching tolerance.
+
+    The matched fraction is deliberately named *concordance*, not sensitivity:
+    the reference peak list is another reconstruction rather than ground truth.
+    """
+
+    tolerances = np.asarray(tolerances_mm, dtype=float).reshape(-1)
+    if tolerances.size == 0 or not np.all(np.isfinite(tolerances)):
+        raise ValueError("tolerances_mm must contain finite values.")
+    if np.any(tolerances < 0.0) or np.any(np.diff(tolerances) <= 0.0):
+        raise ValueError("tolerances_mm must be nonnegative and increasing.")
+
+    rows: list[dict[str, float | int | None]] = []
+    for tolerance in tolerances:
+        pairs = match_to_reference(
+            reference, target, tolerance_mm=float(tolerance)
+        )
+        signed = np.asarray(
+            [target[j].x_mm - reference[i].x_mm for i, j in pairs.items()],
+            dtype=float,
+        )
+        absolute = np.abs(signed)
+        rows.append(
+            {
+                "tolerance_mm": float(tolerance),
+                "reference_peak_count": int(len(reference)),
+                "target_peak_count": int(len(target)),
+                "matched_peak_count": int(len(pairs)),
+                "matched_fraction": (
+                    float(len(pairs) / len(reference)) if reference else None
+                ),
+                "unmatched_reference_count": int(len(reference) - len(pairs)),
+                "unmatched_target_count": int(len(target) - len(pairs)),
+                "mean_signed_displacement_mm": (
+                    float(np.mean(signed)) if signed.size else None
+                ),
+                "mean_absolute_displacement_mm": (
+                    float(np.mean(absolute)) if absolute.size else None
+                ),
+                "median_absolute_displacement_mm": (
+                    float(np.median(absolute)) if absolute.size else None
+                ),
+                "maximum_absolute_displacement_mm": (
+                    float(np.max(absolute)) if absolute.size else None
+                ),
+            }
+        )
+    return rows
+
+
+def diagnose_peak_displacements(
+    reference: Sequence[PeakWidth],
+    target: Sequence[PeakWidth],
+    *,
+    matching_tolerance_mm: float,
+    tracking_radius_mm: float = 0.35,
+) -> list[PeakDisplacement]:
+    """Separate within-tolerance matches from clearly displaced peaks.
+
+    This diagnostic cannot establish biological sensitivity.  In particular,
+    ``no_peak_within_tracking_radius`` combines a target falling below the
+    detector threshold, a genuinely absent response, and a displacement larger
+    than the declared tracking radius.  Possible split/merge flags are based
+    only on multiple nearby detected peaks and are therefore descriptive.
+    """
+
+    if matching_tolerance_mm < 0.0 or tracking_radius_mm <= 0.0:
+        raise ValueError("Tolerances must be nonnegative and tracking radius positive.")
+    if tracking_radius_mm < matching_tolerance_mm:
+        raise ValueError("tracking_radius_mm must be at least matching_tolerance_mm.")
+
+    if not reference:
+        return []
+    if not target:
+        return [
+            PeakDisplacement(
+                reference_index=index,
+                reference_x_mm=float(record.x_mm),
+                target_index=None,
+                target_x_mm=None,
+                signed_displacement_mm=None,
+                absolute_displacement_mm=None,
+                status="no_peak_within_tracking_radius",
+                possible_split=False,
+                possible_merge=False,
+            )
+            for index, record in enumerate(reference)
+        ]
+
+    distances = np.abs(
+        np.subtract.outer(
+            [record.x_mm for record in reference],
+            [record.x_mm for record in target],
+        )
+    )
+    # Lock the declared within-tolerance maximum-cardinality assignment first.
+    # Only then diagnose the unmatched residual sets at the wider tracking
+    # radius; an unconstrained global assignment can otherwise sacrifice a
+    # valid strict match to reduce total distance elsewhere.
+    assigned = _one_to_one_pairs(
+        reference, target, float(matching_tolerance_mm)
+    )
+    strict_reference = set(assigned)
+    strict_target = set(assigned.values())
+    residual_reference = [
+        index for index in range(len(reference)) if index not in strict_reference
+    ]
+    residual_target = [
+        index for index in range(len(target)) if index not in strict_target
+    ]
+    if residual_reference and residual_target:
+        # Preserve maximum cardinality within the wider radius as well.  A
+        # plain unconstrained minimum-distance assignment can otherwise spend
+        # one target on an out-of-radius edge and incorrectly label a nearby
+        # reference peak as absent.
+        residual_pairs = _one_to_one_pairs(
+            [reference[index] for index in residual_reference],
+            [target[index] for index in residual_target],
+            float(tracking_radius_mm),
+        )
+        for local_reference, local_target in residual_pairs.items():
+            assigned[residual_reference[local_reference]] = residual_target[
+                local_target
+            ]
+    target_reference_neighbours = np.sum(
+        distances <= tracking_radius_mm, axis=0
+    )
+
+    records: list[PeakDisplacement] = []
+    for reference_index, reference_peak in enumerate(reference):
+        target_index = assigned.get(reference_index)
+        if target_index is None:
+            records.append(
+                PeakDisplacement(
+                    reference_index=reference_index,
+                    reference_x_mm=float(reference_peak.x_mm),
+                    target_index=None,
+                    target_x_mm=None,
+                    signed_displacement_mm=None,
+                    absolute_displacement_mm=None,
+                    status="no_peak_within_tracking_radius",
+                    possible_split=bool(
+                        np.sum(distances[reference_index] <= tracking_radius_mm) > 1
+                    ),
+                    possible_merge=False,
+                )
+            )
+            continue
+
+        signed = float(target[target_index].x_mm - reference_peak.x_mm)
+        absolute = abs(signed)
+        if reference_index in strict_reference:
+            status = "matched_within_tolerance"
+        elif absolute <= tracking_radius_mm:
+            status = "displaced_beyond_matching_tolerance"
+        else:
+            status = "no_peak_within_tracking_radius"
+            target_index = None
+
+        records.append(
+            PeakDisplacement(
+                reference_index=reference_index,
+                reference_x_mm=float(reference_peak.x_mm),
+                target_index=target_index,
+                target_x_mm=(
+                    float(target[target_index].x_mm)
+                    if target_index is not None
+                    else None
+                ),
+                signed_displacement_mm=signed if target_index is not None else None,
+                absolute_displacement_mm=(
+                    absolute if target_index is not None else None
+                ),
+                status=status,
+                possible_split=bool(
+                    np.sum(distances[reference_index] <= tracking_radius_mm) > 1
+                ),
+                possible_merge=bool(
+                    target_index is not None
+                    and target_reference_neighbours[target_index] > 1
+                ),
+            )
+        )
+    return records
+
+
 def match_three_methods(
     das: Sequence[PeakWidth],
     receive_nsi: Sequence[PeakWidth],
@@ -253,6 +472,25 @@ def analyse_three_profiles(
         ),
     }
 
+    tolerance_values = np.round(np.arange(0.05, 0.401, 0.01), 10)
+    concordance = {}
+    for method in ("receive_nsi", "angle_nsi"):
+        concordance[method] = {
+            "reference": "DAS detected peaks (not independent ground truth)",
+            "interpretation": (
+                "Positional concordance only; it must not be interpreted as "
+                "sensitivity or target-detection probability."
+            ),
+            "tolerance_sweep": matching_tolerance_sweep(
+                peaks["das"], peaks[method], tolerance_values
+            ),
+            "displacements": diagnose_peak_displacements(
+                peaks["das"],
+                peaks[method],
+                matching_tolerance_mm=matching_tolerance_mm,
+            ),
+        }
+
     return {
         "parameters": {
             **detector_options,
@@ -266,6 +504,7 @@ def analyse_three_profiles(
         "counts": counts,
         "fractions": fractions,
         "width_summary": width_summary,
+        "concordance": concordance,
     }
 
 
@@ -387,9 +626,128 @@ def save_analysis_outputs(
             }
             for match_id, match in enumerate(analysis["matches"], start=1)
         ],
+        "concordance": {
+            method: {
+                **{
+                    key: value
+                    for key, value in details.items()
+                    if key != "displacements"
+                },
+                "displacements": [
+                    asdict(record) for record in details["displacements"]
+                ],
+            }
+            for method, details in analysis["concordance"].items()
+        },
     }
     with json_path.open("w", encoding="utf-8") as stream:
         json.dump(serializable, stream, indent=2)
         stream.write("\n")
 
     return csv_path, json_path
+
+
+def save_concordance_outputs(
+    analysis: dict,
+    output_dir: str | Path,
+    *,
+    stem: str = "microbubble_peak_concordance",
+) -> dict[str, Path]:
+    """Write tolerance curves, displacements and a compact audit figure."""
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    tolerance_path = destination / f"{stem}_tolerance_sweep.csv"
+    displacement_path = destination / f"{stem}_displacements.csv"
+    figure_path = destination / f"{stem}_tolerance_sweep.png"
+
+    tolerance_rows: list[dict] = []
+    displacement_rows: list[dict] = []
+    for method, details in analysis["concordance"].items():
+        for row in details["tolerance_sweep"]:
+            tolerance_rows.append({"method": method, **row})
+        for record in details["displacements"]:
+            displacement_rows.append({"method": method, **asdict(record)})
+
+    with tolerance_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(tolerance_rows[0]))
+        writer.writeheader()
+        writer.writerows(tolerance_rows)
+    with displacement_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(displacement_rows[0]))
+        writer.writeheader()
+        writer.writerows(displacement_rows)
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, (axis, displacement_axis) = plt.subplots(
+        1, 2, figsize=(9.0, 3.5), dpi=180
+    )
+    styles = {
+        "receive_nsi": ("tab:red", "s", "Receive-NSI"),
+        "angle_nsi": ("tab:blue", "^", "Angle-NSI"),
+    }
+    for method, details in analysis["concordance"].items():
+        rows = details["tolerance_sweep"]
+        axis.step(
+            [row["tolerance_mm"] for row in rows],
+            [row["matched_fraction"] for row in rows],
+            where="post",
+            color=styles[method][0],
+            linewidth=2.0,
+            label=styles[method][2],
+        )
+        displacement_records = [
+            record for record in details["displacements"]
+            if record.signed_displacement_mm is not None
+        ]
+        displacement_axis.scatter(
+            [record.reference_x_mm for record in displacement_records],
+            [record.signed_displacement_mm for record in displacement_records],
+            color=styles[method][0],
+            marker=styles[method][1],
+            s=28,
+            label=styles[method][2],
+            zorder=3,
+        )
+    primary_tolerance = analysis["parameters"]["matching_tolerance_mm"]
+    axis.axvline(primary_tolerance, color="0.35", linestyle="--", linewidth=1.0)
+    axis.set(
+        xlabel="One-to-one matching tolerance [mm]",
+        ylabel="Fraction of DAS peaks matched",
+        xlim=(0.05, 0.40),
+        ylim=(-0.02, 1.02),
+    )
+    axis.grid(True, alpha=0.25)
+    axis.legend(frameon=False, loc="lower right")
+    displacement_axis.axhspan(
+        -primary_tolerance,
+        primary_tolerance,
+        color="0.8",
+        alpha=0.35,
+        label="0.15 mm tolerance",
+        zorder=0,
+    )
+    displacement_axis.axhline(0.0, color="0.35", linewidth=0.8)
+    displacement_axis.set(
+        xlabel="DAS reference-peak position [mm]",
+        ylabel="Assigned-peak signed displacement [mm]",
+        ylim=(-0.37, 0.37),
+    )
+    displacement_axis.grid(True, alpha=0.25)
+    displacement_axis.legend(frameon=False, fontsize=7, loc="best")
+    figure.tight_layout()
+    figure.savefig(figure_path, dpi=300, bbox_inches="tight")
+    plt.close(figure)
+
+    for path in (tolerance_path, displacement_path, figure_path):
+        if not path.is_file() or path.stat().st_size == 0:
+            raise OSError(f"Expected output was not written correctly: {path}")
+    return {
+        "tolerance_csv": tolerance_path,
+        "displacement_csv": displacement_path,
+        "figure": figure_path,
+    }

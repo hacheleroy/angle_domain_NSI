@@ -17,6 +17,8 @@ Status:
 
 """
 
+import csv
+import json
 import os
 import time
 from pathlib import Path
@@ -37,7 +39,15 @@ import imageio.v3 as iio
 from trace_width_analysis import (
     analyse_three_profiles,
     format_analysis_report,
+    match_to_reference,
+    measure_peak_widths,
     save_analysis_outputs,
+    save_concordance_outputs,
+)
+from nsi_core import (
+    angular_sign_weights,
+    coherence_factor_from_moments,
+    nsi_envelope,
 )
 
 MM = 1e3  # meters -> mm, for display only
@@ -62,9 +72,23 @@ angle_max = 4.0
 
 # NSI dc offset 
 dc_offset = 0.1
+c_values = tuple(sorted({
+    dc_offset,
+    *(
+        float(value)
+        for value in os.environ.get(
+            "NSI_C_VALUES", "0.02,0.05,0.1,0.2"
+        ).split(",")
+        if value.strip()
+    ),
+}))
+if any(not np.isfinite(value) or value <= 0.0 for value in c_values):
+    raise ValueError("Every NSI c-sensitivity value must be finite and positive.")
 
-# SVD cutoffs -- confirmed correct as-is (indexed from opposite ends of the
-# ensemble), left untouched.
+# Open-NSI's MATLAB loop zeros components 1--10 and 350--400 inclusive for
+# 400 frames.  The equivalent zero-based half-open slices are [:10] and
+# [349:], so the high-order block contains 51 components despite the released
+# parameter name ``EndCutOff=50``.
 svd_low, svd_high = 10, 349
 
 # ---------------------------------------------------------------
@@ -112,16 +136,11 @@ nl, nc = samples, elements   # match das_localNSI.m's [nl,nc] = size(IQ)
 
 angles_deg = np.linspace(angle_min, angle_max, num_angles)
 angles_rad = np.deg2rad(angles_deg)
-if not np.allclose(angles_deg, -angles_deg[::-1], atol=1e-6):
-    raise ValueError("The steering sequence must be symmetric about broadside.")
 
 # ---------------------------------------------------------------
 # 1b. Angular NSI apodization (mirrors apo_ZM / apo_DC1 / apo_DC2)
 # ---------------------------------------------------------------
-apo_zm = np.sign(angles_deg).astype(np.float32)      # 0 deg -> 0
-apo_zm[np.isclose(angles_deg, 0.0, atol=1e-6)] = 0.0
-if not np.isclose(apo_zm.sum(), 0.0):
-    raise ValueError("The steering angles must be symmetric about broadside.")
+apo_zm, angular_weight_diagnostics = angular_sign_weights(angles_deg)
 
 apo_zm_gpu = cp.asarray(apo_zm, dtype=cp.float32)
 
@@ -223,6 +242,7 @@ print(f"Beamforming {Nt} temporal frames (frame-by-frame GPU demodulation)...")
 t_bf_start = time.perf_counter()
 
 M_das = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
+M_angle_power = cp.zeros((num_voxels, Nt), dtype=cp.float32)
 M_zm_ang = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
 M_u_conv = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
 M_zm_conv = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
@@ -235,6 +255,7 @@ for t in range(Nt):
     iq_frame_gpu = (analytic_frame * carrier_gpu).astype(cp.complex64)
 
     comp_das = cp.zeros(num_voxels, dtype=cp.complex64)
+    comp_angle_power = cp.zeros(num_voxels, dtype=cp.float32)
     
     comp_zm_ang = cp.zeros(num_voxels, dtype=cp.complex64)
     
@@ -259,11 +280,13 @@ for t in range(Nt):
         contrib_zm = base * signMat_gpu
 
         comp_das += angle_result
+        comp_angle_power += cp.abs(angle_result) ** 2
         comp_zm_ang += angle_result * apo_zm_gpu[i]
         comp_u_conv += angle_result
         comp_zm_conv += contrib_zm.sum(axis=1)
 
     M_das[:, t] = comp_das
+    M_angle_power[:, t] = comp_angle_power
     M_zm_ang[:, t] = comp_zm_ang
     M_u_conv[:, t] = comp_u_conv
     M_zm_conv[:, t] = comp_zm_conv
@@ -297,28 +320,45 @@ def svd_filter(M, low, high):
     return (U * S_filtered) @ Vt
 
 
+def joint_filtered_nsi(uniform, null, c_value, low, high):
+    """Apply the Open-NSI joint SVD convention and shared NSI functional."""
+
+    plus = null + c_value * uniform
+    minus = -null + c_value * uniform
+    stacked = cp.concatenate([plus, minus, null], axis=0)
+    filtered = svd_filter(stacked, low, high)
+    plus_filt, minus_filt, null_filt = cp.split(filtered, 3, axis=0)
+    uniform_filt = (plus_filt + minus_filt) / (2.0 * c_value)
+    return nsi_envelope(uniform_filt, null_filt, c_value, xp=cp)
+
+
 M_das_filt = svd_filter(M_das, svd_low, svd_high)
 
-M_angular_stack = cp.concatenate([M_dc1_ang, M_dc2_ang, M_zm_ang], axis=0)
-M_angular_filt = svd_filter(M_angular_stack, svd_low, svd_high)
-M_dc1_ang_filt, M_dc2_ang_filt, M_zm_ang_filt = cp.split(M_angular_filt, 3, axis=0)
+# Angular coherence-factor-weighted DAS comparator.  The ensemble is the same
+# set of focused per-angle images used by Angle-NSI, rather than receive-channel
+# contributions; this precise definition is recorded with the output.
+M_cf = coherence_factor_from_moments(
+    M_das, M_angle_power, num_angles, xp=cp
+) * M_das
+M_cf_filt = svd_filter(M_cf, svd_low, svd_high)
 
-M_conv_stack = cp.concatenate([M_dc1_conv, M_dc2_conv, M_zm_conv], axis=0)
-M_conv_filt = svd_filter(M_conv_stack, svd_low, svd_high)
-M_dc1_conv_filt, M_dc2_conv_filt, M_zm_conv_filt = cp.split(M_conv_filt, 3, axis=0)
-
-# NSI combination.
-M_angular_nsi = 0.5 * (cp.abs(M_dc1_ang_filt) + cp.abs(M_dc2_ang_filt)) - cp.abs(M_zm_ang_filt)
-M_conv_nsi = 0.5 * (cp.abs(M_dc1_conv_filt) + cp.abs(M_dc2_conv_filt)) - cp.abs(M_zm_conv_filt)
+M_angular_nsi = joint_filtered_nsi(
+    M_das, M_zm_ang, dc_offset, svd_low, svd_high
+)
+M_conv_nsi = joint_filtered_nsi(
+    M_u_conv, M_zm_conv, dc_offset, svd_low, svd_high
+)
 
 # ---------------------------------------------------------------
 # 6. Power Doppler: DAS vs Conventional NSI vs Angular NSI
 # ---------------------------------------------------------------
 pd_das = cp.sqrt(cp.sum(cp.abs(M_das_filt) ** 2, axis=1).reshape(len(x), len(z)))
+pd_cf = cp.sqrt(cp.sum(cp.abs(M_cf_filt) ** 2, axis=1).reshape(len(x), len(z)))
 pd_conv = cp.sqrt(cp.sum(M_conv_nsi ** 2, axis=1).reshape(len(x), len(z)))
 pd_angular = cp.sqrt(cp.sum(M_angular_nsi ** 2, axis=1).reshape(len(x), len(z)))
 
 pd_das_db = db_zero(pd_das).get()
+pd_cf_db = db_zero(pd_cf).get()
 pd_conv_db = db_zero(pd_conv).get()
 pd_angular_db = db_zero(pd_angular).get()
 
@@ -356,17 +396,240 @@ trace_csv, trace_json = save_analysis_outputs(
 )
 print(f"Saved matched trace measurements to {trace_csv}")
 print(f"Saved trace-analysis audit metadata to {trace_json}")
+concordance_paths = save_concordance_outputs(trace_analysis, output_dir)
+for path in concordance_paths.values():
+    print(f"Saved peak-concordance output to {path}")
+
+das_peaks = trace_analysis["peaks"]["das"]
+comparison_profiles = {
+    "DAS": profile_das,
+    "Angular CF-DAS": pd_cf_db[:, z_cross_idx],
+    "Receive-NSI": profile_conv,
+    "Angle-NSI": profile_angular,
+}
+comparison_rows = []
+for method_key, profile in comparison_profiles.items():
+    peaks = measure_peak_widths(
+        x_mm,
+        profile,
+        prominence_db=6.0,
+        min_distance_mm=0.2,
+        min_height_db=-25.0,
+    )
+    pairs = (
+        {index: index for index in range(len(das_peaks))}
+        if method_key == "DAS"
+        else match_to_reference(das_peaks, peaks, tolerance_mm=0.15)
+    )
+    matched_widths = [peaks[index].width_mm for index in pairs.values()]
+    comparison_rows.append(
+        {
+            "method": method_key,
+            "cross_section_depth_mm": z_cross_actual_mm,
+            "detected_peak_count": len(peaks),
+            "das_reference_peak_count": len(das_peaks),
+            "das_concordant_count_at_0p15_mm": len(pairs),
+            "das_concordant_fraction_at_0p15_mm": (
+                len(pairs) / len(das_peaks) if das_peaks else None
+            ),
+            "mean_matched_width_mm": (
+                float(np.mean(matched_widths)) if matched_widths else None
+            ),
+            "sample_sd_matched_width_mm": (
+                float(np.std(matched_widths, ddof=1))
+                if len(matched_widths) > 1
+                else None
+            ),
+        }
+    )
+comparison_csv = output_dir / "mbtrace_four_method_comparison.csv"
+with comparison_csv.open("w", newline="", encoding="utf-8") as stream:
+    writer = csv.DictWriter(stream, fieldnames=list(comparison_rows[0]))
+    writer.writeheader()
+    writer.writerows(comparison_rows)
+print(f"Saved four-method trace comparison to {comparison_csv}")
 
 # ---------------------------------------------------------------
-# 6c. Power-Doppler images and matched cross-section profile
+# 6c. Sensitivity of positional concordance and widths to c
 # ---------------------------------------------------------------
-fig = plt.figure(figsize=(18, 5.5), dpi=300)
-gs = fig.add_gridspec(1, 5, width_ratios=[1, 1, 1, 0.05, 1.15], wspace=0.35)
+print(f"Evaluating NSI c sensitivity at {c_values}...")
+c_rows = []
+pd_das_peak = float(cp.max(pd_das).get())
+for c_value in c_values:
+    for method_key, uniform_field, null_field in (
+        ("Receive-NSI", M_u_conv, M_zm_conv),
+        ("Angle-NSI", M_das, M_zm_ang),
+    ):
+        if np.isclose(c_value, dc_offset, rtol=0.0, atol=1e-12):
+            pd_method = pd_conv if method_key == "Receive-NSI" else pd_angular
+            profile_method = (
+                pd_conv_db[:, z_cross_idx]
+                if method_key == "Receive-NSI"
+                else pd_angular_db[:, z_cross_idx]
+            )
+        else:
+            filtered = joint_filtered_nsi(
+                uniform_field, null_field, c_value, svd_low, svd_high
+            )
+            pd_method = cp.sqrt(
+                cp.sum(filtered ** 2, axis=1).reshape(len(x), len(z))
+            )
+            profile_method = db_zero(pd_method).get()[:, z_cross_idx]
+
+        target_peaks = measure_peak_widths(
+            x_mm,
+            profile_method,
+            prominence_db=6.0,
+            min_distance_mm=0.2,
+            min_height_db=-25.0,
+        )
+        strict_pairs = match_to_reference(
+            das_peaks, target_peaks, tolerance_mm=0.15
+        )
+        tracking_pairs = match_to_reference(
+            das_peaks, target_peaks, tolerance_mm=0.35
+        )
+        matched_widths = [
+            target_peaks[target_index].width_mm
+            for target_index in strict_pairs.values()
+        ]
+        signed_displacements = [
+            target_peaks[target_index].x_mm - das_peaks[reference_index].x_mm
+            for reference_index, target_index in tracking_pairs.items()
+        ]
+        c_rows.append(
+            {
+                "method": method_key,
+                "c": float(c_value),
+                "das_reference_peak_count": len(das_peaks),
+                "detected_peak_count": len(target_peaks),
+                "matched_count_at_0p15_mm": len(strict_pairs),
+                "matched_fraction_at_0p15_mm": (
+                    len(strict_pairs) / len(das_peaks) if das_peaks else None
+                ),
+                "matched_count_at_0p35_mm": len(tracking_pairs),
+                "matched_fraction_at_0p35_mm": (
+                    len(tracking_pairs) / len(das_peaks) if das_peaks else None
+                ),
+                "mean_strictly_matched_width_mm": (
+                    float(np.mean(matched_widths)) if matched_widths else None
+                ),
+                "mean_signed_displacement_within_0p35_mm": (
+                    float(np.mean(signed_displacements))
+                    if signed_displacements
+                    else None
+                ),
+                "mean_absolute_displacement_within_0p35_mm": (
+                    float(np.mean(np.abs(signed_displacements)))
+                    if signed_displacements
+                    else None
+                ),
+                "peak_power_amplitude_ratio_to_c_times_das": (
+                    float(cp.max(pd_method).get()) / (c_value * pd_das_peak)
+                ),
+            }
+        )
+        if not np.isclose(c_value, dc_offset, rtol=0.0, atol=1e-12):
+            del filtered, pd_method
+
+c_csv = output_dir / "mbtrace_c_sensitivity.csv"
+with c_csv.open("w", newline="", encoding="utf-8") as stream:
+    writer = csv.DictWriter(stream, fieldnames=list(c_rows[0]))
+    writer.writeheader()
+    writer.writerows(c_rows)
+c_json = output_dir / "mbtrace_c_sensitivity.json"
+with c_json.open("w", encoding="utf-8") as stream:
+    json.dump(
+        {
+            "primary_c": dc_offset,
+            "c_values": list(c_values),
+            "cross_section_depth_mm": z_cross_actual_mm,
+            "angular_weight_diagnostics": angular_weight_diagnostics.to_dict(),
+            "svd_filter": {
+                "frame_count": int(Nt),
+                "zeroed_components_matlab_indexing": ["1--10", "350--400"],
+                "zeroed_slices_python_indexing": ["[:10]", "[349:]"],
+                "source_convention": (
+                    "Open-NSI Basic/SVDFilt.m with InitCutOff=10 and "
+                    "EndCutOff=50"
+                ),
+            },
+            "matching_interpretation": (
+                "DAS is a reconstruction reference, not independent ground "
+                "truth; matched fractions quantify positional concordance, "
+                "not sensitivity."
+            ),
+            "thresholding": {
+                "prominence_db": 6.0,
+                "minimum_peak_distance_mm": 0.2,
+                "minimum_height_db": -25.0,
+                "profiles_normalized_independently": True,
+            },
+            "rows": c_rows,
+        },
+        stream,
+        indent=2,
+        allow_nan=False,
+    )
+    stream.write("\n")
+
+c_figure = output_dir / "mbtrace_c_sensitivity.png"
+figure_c, axes_c = plt.subplots(1, 2, figsize=(8.2, 3.3), dpi=180)
+method_styles = {
+    "Receive-NSI": ("tab:red", "s", "--"),
+    "Angle-NSI": ("tab:blue", "^", "-."),
+}
+for method_key, (color, marker, linestyle) in method_styles.items():
+    selected = [row for row in c_rows if row["method"] == method_key]
+    axes_c[0].plot(
+        [row["c"] for row in selected],
+        [row["matched_fraction_at_0p15_mm"] for row in selected],
+        color=color, marker=marker, linestyle=linestyle, label=method_key,
+    )
+    axes_c[0].plot(
+        [row["c"] for row in selected],
+        [row["matched_fraction_at_0p35_mm"] for row in selected],
+        color=color, marker=marker, linestyle=":", alpha=0.65,
+    )
+    axes_c[1].plot(
+        [row["c"] for row in selected],
+        [row["mean_strictly_matched_width_mm"] for row in selected],
+        color=color, marker=marker, linestyle=linestyle, label=method_key,
+    )
+axes_c[0].set(
+    xlabel="NSI offset c",
+    ylabel="Fraction of DAS peaks matched",
+    ylim=(-0.02, 1.02),
+)
+axes_c[0].text(
+    0.98, 0.05, "solid/dashed: 0.15 mm\ndotted: 0.35 mm",
+    transform=axes_c[0].transAxes, ha="right", va="bottom", fontsize=7,
+)
+axes_c[1].set(xlabel="NSI offset c", ylabel="Mean matched -6 dB width [mm]")
+for axis in axes_c:
+    axis.grid(True, alpha=0.25)
+axes_c[1].legend(frameon=False, fontsize=8)
+figure_c.tight_layout()
+figure_c.savefig(c_figure, dpi=300, bbox_inches="tight")
+plt.close(figure_c)
+for path in (c_csv, c_json, c_figure):
+    if not path.is_file() or path.stat().st_size == 0:
+        raise OSError(f"Expected c-sensitivity output was not written: {path}")
+    print(f"Saved c-sensitivity output to {path}")
+
+# ---------------------------------------------------------------
+# 6d. Power-Doppler images and matched cross-section profile
+# ---------------------------------------------------------------
+fig = plt.figure(figsize=(22, 5.5), dpi=300)
+gs = fig.add_gridspec(
+    1, 6, width_ratios=[1, 1, 1, 1, 0.05, 1.15], wspace=0.35
+)
 ax0 = fig.add_subplot(gs[0, 0])
-ax1 = fig.add_subplot(gs[0, 1], sharey=ax0)
-ax2 = fig.add_subplot(gs[0, 2], sharey=ax0)
-cax = fig.add_subplot(gs[0, 3])
-ax_profile = fig.add_subplot(gs[0, 4])
+ax_cf = fig.add_subplot(gs[0, 1], sharey=ax0)
+ax1 = fig.add_subplot(gs[0, 2], sharey=ax0)
+ax2 = fig.add_subplot(gs[0, 3], sharey=ax0)
+cax = fig.add_subplot(gs[0, 4])
+ax_profile = fig.add_subplot(gs[0, 5])
 
 im0 = ax0.imshow(
     pd_das_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
@@ -375,22 +638,29 @@ ax0.set_xlabel("Lateral [mm]")
 ax0.set_ylabel("Depth [mm]")
 ax0.set_title("(a)")
 
+ax_cf.imshow(
+    pd_cf_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
+)
+ax_cf.set_xlabel("Lateral [mm]")
+ax_cf.set_title("(b)")
+plt.setp(ax_cf.get_yticklabels(), visible=False)
+
 ax1.imshow(
     pd_conv_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
 )
 ax1.set_xlabel("Lateral [mm]")
-ax1.set_title("(b)")
+ax1.set_title("(c)")
 plt.setp(ax1.get_yticklabels(), visible=False)
 
 ax2.imshow(
     pd_angular_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
 )
 ax2.set_xlabel("Lateral [mm]")
-ax2.set_title("(c)")
+ax2.set_title("(d)")
 plt.setp(ax2.get_yticklabels(), visible=False)
 fig.colorbar(im0, cax=cax, label="Normalized intensity [dB]")
 
-for axis in (ax0, ax1, ax2):
+for axis in (ax0, ax_cf, ax1, ax2):
     axis.axhline(z_cross_actual_mm, color="orange", linewidth=1.2)
 
 ax_profile.plot(
@@ -398,11 +668,19 @@ ax_profile.plot(
 )
 ax_profile.plot(
     x_mm,
+    pd_cf_db[:, z_cross_idx],
+    color="tab:green",
+    linestyle=":",
+    linewidth=1.4,
+    label="Angular CF-DAS",
+)
+ax_profile.plot(
+    x_mm,
     profile_conv,
     color="tab:red",
     linestyle="--",
     linewidth=1.4,
-    label="Conventional NSI",
+    label="Receive-NSI",
 )
 ax_profile.plot(
     x_mm,
@@ -410,7 +688,7 @@ ax_profile.plot(
     color="tab:blue",
     linestyle="-.",
     linewidth=1.4,
-    label="Angular NSI",
+    label="Angle-NSI",
 )
 for match_id, match in enumerate(trace_analysis["matches"], start=1):
     ax_profile.axvline(
@@ -428,12 +706,12 @@ for match_id, match in enumerate(trace_analysis["matches"], start=1):
 ax_profile.set_xlabel("Lateral [mm]")
 ax_profile.set_ylabel("Normalized intensity [dB]")
 ax_profile.set_ylim(-DR - 4.0, -4.0)
-ax_profile.set_title(f"(d)")
+ax_profile.set_title("(e)")
 ax_profile.legend(frameon=False, fontsize=8)
 ax_profile.yaxis.set_label_position("right")
 ax_profile.yaxis.tick_right()
 
-png_out = os.path.join(output_dir, "power_doppler_das_vs_convNSI_vs_angularNSI.png")
+png_out = os.path.join(output_dir, "power_doppler_four_method_comparison.png")
 fig.savefig(png_out, dpi=300, bbox_inches="tight")
 plt.close(fig)
 print(f"Saved comparison figure with matched trace identifiers to {png_out}")

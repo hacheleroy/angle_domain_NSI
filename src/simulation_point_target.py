@@ -43,6 +43,13 @@ from mach import wavefront
 from mach.io.must import linear_probe_positions, scan_grid
 from mach.kernel import beamform
 
+from nsi_core import (
+    angular_sign_weights,
+    coherence_factor,
+    nsi_c_sweep,
+    nsi_envelope,
+)
+
 
 HALF_AMPLITUDE_DB = float(20.0 * np.log10(0.5))
 WIDTH_LEVELS = (
@@ -54,6 +61,13 @@ MIN_RECOMMENDED_SAMPLES_PER_FWHM = 8.0
 CONVERGENCE_TOLERANCE_PERCENT = 1.0
 LATERAL_SUBSAMPLING_STRIDES = (16, 8, 4, 2, 1)
 N_FINAL_CONVERGENCE_COMPARISONS = 2
+METHOD_ORDER = ("DAS", "Angular CF-DAS", "Receive-NSI", "Angle-NSI")
+METHOD_STYLES = {
+    "DAS": ("tab:purple", "-"),
+    "Angular CF-DAS": ("tab:green", ":"),
+    "Receive-NSI": ("tab:red", "--"),
+    "Angle-NSI": ("tab:blue", "-."),
+}
 
 
 def verify_saved_file(path):
@@ -512,14 +526,30 @@ IQ = [
 element_positions = linear_probe_positions(param.Nelements, param.pitch)
 rx_coords_gpu = cp.asarray(element_positions, dtype=np.float32)
 f_number = 0.0
-dc = 0.05
+dc = float(os.environ.get("NSI_DC_OFFSET", "0.05"))
+c_values = tuple(
+    sorted(
+        {
+            dc,
+            *(
+                float(value)
+                for value in os.environ.get(
+                    "NSI_C_VALUES", "0.02,0.05,0.1,0.2"
+                ).split(",")
+                if value.strip()
+            ),
+        }
+    )
+)
+if any(not np.isfinite(value) or value <= 0.0 for value in c_values):
+    raise ValueError("All NSI c values must be finite and positive.")
 
 apo_null = np.ones(param.Nelements, dtype=np.float32)
 apo_null[: param.Nelements // 2] = -1.0
 
 
-def reconstruct_grid(x_axis, z_axis, label):
-    """Beamform the three methods on one Cartesian grid and return CPU arrays."""
+def reconstruct_grid(x_axis, z_axis, label, *, return_fields=False):
+    """Beamform all methods on one Cartesian grid and return CPU arrays."""
 
     y_axis = np.array([0.0])
     grid_points = scan_grid(x_axis, y_axis, z_axis)
@@ -574,38 +604,38 @@ def reconstruct_grid(x_axis, z_axis, label):
         uniform_sum += raw_image
         receive_null_sum += null_image
 
-    angular_null_weights = cp.asarray(
-        np.sign(angles_deg), dtype=cp.float32
-    )
-    if not np.isclose(float(cp.sum(angular_null_weights).get()), 0.0):
-        raise ValueError("Angular zero-mean weights must sum to zero.")
+    angular_weights, angular_weight_diagnostics = angular_sign_weights(angles_deg)
+    angular_null_weights = cp.asarray(angular_weights, dtype=cp.float32)
 
     angular_null_sum = cp.sum(
         raw_angle_stack * angular_null_weights.reshape(1, 1, -1), axis=2
     )
-    angular_dc_1 = angular_null_sum + dc * uniform_sum
-    angular_dc_2 = -angular_null_sum + dc * uniform_sum
-    angular_envelope = (
-        (cp.abs(angular_dc_1) + cp.abs(angular_dc_2)) * 0.5
-        - cp.abs(angular_null_sum)
+    angular_envelope = nsi_envelope(
+        uniform_sum, angular_null_sum, dc, xp=cp
     )
-
-    conventional_dc_1 = receive_null_sum + dc * uniform_sum
-    conventional_dc_2 = -receive_null_sum + dc * uniform_sum
-    conventional_envelope = (
-        (cp.abs(conventional_dc_1) + cp.abs(conventional_dc_2)) * 0.5
-        - cp.abs(receive_null_sum)
+    conventional_envelope = nsi_envelope(
+        uniform_sum, receive_null_sum, dc, xp=cp
     )
+    angular_cf = coherence_factor(raw_angle_stack, axis=2, xp=cp)
 
     cp.cuda.Stream.null.synchronize()
     elapsed_seconds = time.perf_counter() - start_time
     envelopes_cpu = {
         "DAS": cp.asnumpy(cp.abs(uniform_sum)),
-        "Conventional NSI": cp.asnumpy(
-            cp.maximum(conventional_envelope, 0.0)
-        ),
-        "Angular NSI": cp.asnumpy(cp.maximum(angular_envelope, 0.0)),
+        "Angular CF-DAS": cp.asnumpy(angular_cf * cp.abs(uniform_sum)),
+        "Receive-NSI": cp.asnumpy(conventional_envelope),
+        "Angle-NSI": cp.asnumpy(angular_envelope),
     }
+    fields_cpu = (
+        {
+            "uniform": cp.asnumpy(uniform_sum),
+            "receive_null": cp.asnumpy(receive_null_sum),
+            "angle_null": cp.asnumpy(angular_null_sum),
+            "angular_weight_diagnostics": angular_weight_diagnostics.to_dict(),
+        }
+        if return_fields
+        else None
+    )
     print(
         f"{label}: {len(x_axis)} x {len(z_axis)} points, "
         f"{elapsed_seconds:.3f} s"
@@ -617,14 +647,13 @@ def reconstruct_grid(x_axis, z_axis, label):
         uniform_sum,
         receive_null_sum,
         angular_null_sum,
-        angular_dc_1,
-        angular_dc_2,
         angular_envelope,
-        conventional_dc_1,
-        conventional_dc_2,
         conventional_envelope,
+        angular_cf,
     )
     cp.get_default_memory_pool().free_all_blocks()
+    if return_fields:
+        return envelopes_cpu, float(elapsed_seconds), fields_cpu
     return envelopes_cpu, float(elapsed_seconds)
 
 
@@ -650,7 +679,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 print(f"Output directory: {output_dir}")
 
 fig_overview, overview_axes = plt.subplots(
-    1, 3, figsize=(12, 5), constrained_layout=True
+    1, 4, figsize=(16, 5), constrained_layout=True
 )
 overview_extent = [
     overview_x.min() * 1e2,
@@ -835,10 +864,11 @@ lateral_z = np.unique(
         [fine_z[index] for index in peak_z_indices.values()], dtype=float
     )
 )
-lateral_envelopes, lateral_time_seconds = reconstruct_grid(
+lateral_envelopes, lateral_time_seconds, lateral_fields = reconstruct_grid(
     lateral_x,
     lateral_z,
     "Micrometre-scale lateral PSF reconstruction",
+    return_fields=True,
 )
 
 lateral_convergence_rows = []
@@ -927,6 +957,66 @@ for two_d_result in fine_2d_results:
     }
 
 
+# Evaluate c on the identical directly beamformed micrometre-scale fields.
+c_sensitivity_rows = []
+field_sweeps = {
+    "Receive-NSI": nsi_c_sweep(
+        lateral_fields["uniform"],
+        lateral_fields["receive_null"],
+        c_values,
+        xp=np,
+    ),
+    "Angle-NSI": nsi_c_sweep(
+        lateral_fields["uniform"],
+        lateral_fields["angle_null"],
+        c_values,
+        xp=np,
+    ),
+}
+x_search = np.flatnonzero(
+    np.abs(lateral_x - target_x_m) <= search_x_half_width_m
+)
+das_peak = float(np.max(lateral_envelopes["DAS"]))
+for method, sweep in field_sweeps.items():
+    for c_value, envelope in sweep.items():
+        local = envelope[x_search, :]
+        local_x, peak_z_index = np.unravel_index(
+            int(np.argmax(local)), local.shape
+        )
+        peak_x_index = int(x_search[local_x])
+        result, _ = measure_lateral_profile(
+            method,
+            envelope,
+            lateral_x,
+            float(lateral_z[peak_z_index]),
+            int(peak_z_index),
+            target_x_m,
+            search_x_half_width_m,
+        )
+        profile = envelope[:, peak_z_index]
+        background_mask = np.abs(lateral_x - target_x_m) >= 0.4e-3
+        background = max(
+            float(np.median(profile[background_mask])), np.finfo(float).tiny
+        )
+        c_sensitivity_rows.append(
+            {
+                "method": method,
+                "c": float(c_value),
+                "lateral_fwhm_mm": result["lateral_fwhm_mm"],
+                "lateral_peak_x_mm": float(lateral_x[peak_x_index] * 1e3),
+                "evaluation_z_mm": float(lateral_z[peak_z_index] * 1e3),
+                "peak_to_median_profile_background_db": float(
+                    20.0 * np.log10(profile[peak_x_index] / background)
+                ),
+                "peak_amplitude_ratio_to_c_times_das": float(
+                    profile[peak_x_index] / (c_value * das_peak)
+                ),
+                "grid_spacing_x_mm": result["grid_spacing_x_mm"],
+                "samples_per_fwhm": result["lateral_samples_per_fwhm"],
+            }
+        )
+
+
 # ============================================================================
 # 5) Print and save quantitative results
 # ============================================================================
@@ -951,7 +1041,7 @@ for result in final_results:
 print("=" * 119)
 
 print("\nNested lateral FWHM values:")
-for method in ("DAS", "Conventional NSI", "Angular NSI"):
+for method in METHOD_ORDER:
     method_rows = [
         row for row in lateral_convergence_rows if row["method"] == method
     ]
@@ -993,6 +1083,15 @@ with fwhm_csv_path.open("w", newline="", encoding="utf-8") as stream:
     writer.writerows(final_results)
 verify_saved_file(fwhm_csv_path)
 
+c_sensitivity_csv_path = output_dir / "simulation_psf_c_sensitivity.csv"
+with c_sensitivity_csv_path.open("w", newline="", encoding="utf-8") as stream:
+    writer = csv.DictWriter(
+        stream, fieldnames=list(c_sensitivity_rows[0].keys())
+    )
+    writer.writeheader()
+    writer.writerows(c_sensitivity_rows)
+verify_saved_file(c_sensitivity_csv_path)
+
 convergence_csv_path = output_dir / "simulation_psf_grid_convergence.csv"
 with convergence_csv_path.open("w", newline="", encoding="utf-8") as stream:
     writer = csv.DictWriter(
@@ -1026,6 +1125,17 @@ with json_path.open("w", encoding="utf-8") as stream:
             "width_levels_db": {
                 name: float(level_db) for name, level_db in WIDTH_LEVELS
             },
+            "nsi_parameter_c": {
+                "primary_value": dc,
+                "sensitivity_values": list(c_values),
+                "weight_convention": (
+                    "raw +/-1 sign weights; c is relative to the unnormalized "
+                    "reference sum U"
+                ),
+            },
+            "cf_das_definition": (
+                "Angular CF=|sum_k B_k|^2/(K sum_k |B_k|^2), multiplied by DAS"
+            ),
             "simulated_target_mm": {
                 "x": target_x_m * 1e3,
                 "z": target_z_m * 1e3,
@@ -1087,6 +1197,7 @@ with json_path.open("w", encoding="utf-8") as stream:
                 "lateral_convergence": lateral_time_seconds,
             },
             "final_results": final_results,
+            "c_sensitivity_results": c_sensitivity_rows,
             "lateral_grid_results": lateral_convergence_rows,
             "lateral_adjacent_grid_checks": lateral_adjacent_grid_checks,
             "final_lateral_convergence_checks": lateral_final_checks,
@@ -1101,13 +1212,42 @@ with json_path.open("w", encoding="utf-8") as stream:
     stream.write("\n")
 verify_saved_file(json_path)
 
+c_figure_path = output_dir / "single_scatterer_c_sensitivity.png"
+fig_c, axes_c = plt.subplots(1, 2, figsize=(8.2, 3.4), constrained_layout=True)
+for method in ("Receive-NSI", "Angle-NSI"):
+    color, line_style = METHOD_STYLES[method]
+    rows = [row for row in c_sensitivity_rows if row["method"] == method]
+    axes_c[0].plot(
+        [row["c"] for row in rows],
+        [row["lateral_fwhm_mm"] for row in rows],
+        color=color,
+        linestyle=line_style,
+        marker="o",
+        label=method,
+    )
+    axes_c[1].plot(
+        [row["c"] for row in rows],
+        [row["peak_to_median_profile_background_db"] for row in rows],
+        color=color,
+        linestyle=line_style,
+        marker="o",
+        label=method,
+    )
+axes_c[0].set(xlabel="NSI offset c", ylabel="Lateral -6 dB width [mm]")
+axes_c[1].set(xlabel="NSI offset c", ylabel="Peak/profile background [dB]")
+for axis in axes_c:
+    axis.grid(alpha=0.25)
+    axis.legend(frameon=False, fontsize=8)
+fig_c.savefig(c_figure_path, dpi=300, bbox_inches="tight")
+verify_saved_file(c_figure_path)
+
 
 # ============================================================================
 # 6) Fine-grid images with -6 dB contours
 # ============================================================================
 result_lookup = {result["method"]: result for result in final_results}
 fig_fine, fine_axes = plt.subplots(
-    1, 3, figsize=(14, 5), constrained_layout=True
+    1, 4, figsize=(17, 5), constrained_layout=True
 )
 fine_extent = [
     fine_x.min() * 1e3,
@@ -1163,12 +1303,8 @@ verify_saved_file(fine_path)
 fig_convergence, (width_axis, sampling_axis) = plt.subplots(
     1, 2, figsize=(11, 4.5), constrained_layout=True
 )
-for method in ("DAS", "Conventional NSI", "Angular NSI"):
-    color, line_style = {
-        "DAS": ("tab:purple", "-"),
-        "Conventional NSI": ("tab:red", "--"),
-        "Angular NSI": ("tab:blue", "-."),
-    }[method]
+for method in METHOD_ORDER:
+    color, line_style = METHOD_STYLES[method]
     method_rows = [
         row for row in lateral_convergence_rows if row["method"] == method
     ]
@@ -1231,9 +1367,7 @@ fig_profiles, (lateral_axis, axial_axis) = plt.subplots(
     1, 2, figsize=(12, 5), constrained_layout=True
 )
 styles = {
-    "DAS": ("tab:purple", "-"),
-    "Conventional NSI": ("tab:red", "--"),
-    "Angular NSI": ("tab:blue", "-."),
+    method: METHOD_STYLES[method] for method in METHOD_ORDER
 }
 
 for result in final_results:
