@@ -21,7 +21,9 @@ DEFAULT_STEPS = (
     "mbtrace",
     "carotid",
     "experimental-psf",
+    "conventional-baselines",
     "timing",
+    "conventional-timing",
     "manuscript-assets",
 )
 EXPECTED_METHODS = {
@@ -37,6 +39,9 @@ EXPECTED_TIMING_CASES = {
     "baseline_preloaded", "baseline_host_stacked",
 }
 EXPECTED_C_VALUES = {0.02, 0.05, 0.10, 0.20}
+EXPECTED_BASELINE_METHODS = {
+    "DAS", "Receive CF-DAS", "MV", "F-DMAS", "Receive-NSI", "Angle-NSI"
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,6 +117,20 @@ def step_definitions(
             "env": common_env,
             "expected": output_root / "experimental_psf" / "picmus_experimental_psf_summary.json",
         },
+        "conventional-baselines": {
+            "command": [
+                python,
+                str(root / "src" / "conventional_baseline_comparison.py"),
+                "--resolution-dataset", str(data_root / "PICMUS" / "resolution_distorsion" / "resolution_distorsion_expe_dataset_rf.hdf5"),
+                "--resolution-phantom", str(data_root / "PICMUS" / "resolution_distorsion" / "resolution_distorsion_expe_phantom.hdf5"),
+                "--carotid-long", str(data_root / "PICMUS" / "in_vivo" / "carotid_long" / "carotid_long_expe_dataset_rf.hdf5"),
+                "--carotid-cross", str(data_root / "PICMUS" / "in_vivo" / "carotid_cross" / "carotid_cross_expe_dataset_rf.hdf5"),
+                "--output-dir", str(output_root / "conventional_baselines"),
+                "--device", str(args.device),
+            ] + (["--force"] if args.force else []),
+            "env": common_env,
+            "expected": output_root / "conventional_baselines" / "conventional_baseline_summary.json",
+        },
         "timing": {
             "command": [
                 python,
@@ -123,6 +142,18 @@ def step_definitions(
             ] + (["--force"] if args.force else []),
             "env": common_env,
             "expected": output_root / "timing_scaling" / "nsi_timing_scaling_summary.json",
+        },
+        "conventional-timing": {
+            "command": [
+                python,
+                str(root / "src" / "benchmark_conventional.py"),
+                "--output-dir", str(output_root / "conventional_timing"),
+                "--device", str(args.device),
+                "--warmups", str(args.timing_warmups),
+                "--repetitions", str(args.timing_repetitions),
+            ],
+            "env": common_env,
+            "expected": output_root / "conventional_timing" / "conventional_timing_summary.json",
         },
         "manuscript-assets": {
             "command": [
@@ -158,7 +189,10 @@ def reusable_output(
     # upstream JSON/CSV files.
     if name == "manuscript-assets":
         return False
-    if name not in {"timing", "experimental-psf"}:
+    if name not in {
+        "timing", "experimental-psf", "conventional-baselines",
+        "conventional-timing",
+    }:
         return True
     try:
         with expected.open(encoding="utf-8") as stream:
@@ -190,6 +224,46 @@ def reusable_output(
                 for method in (
                     "DAS", "Angular CF-DAS", "Receive-NSI", "Angle-NSI"
                 )
+            )
+        )
+    if name == "conventional-baselines":
+        psf_methods = {
+            row.get("method")
+            for row in payload.get("experimental_psf", {}).get("metrics", [])
+        }
+        views = payload.get("carotid_views", [])
+        view_methods = {
+            view.get("view"): {
+                row.get("method") for row in view.get("metrics", [])
+            }
+            for view in views
+        }
+        return bool(
+            payload.get("metadata_only") is False
+            and payload.get("quick_engineering_run") is False
+            and payload.get("publication_ready") is True
+            and set(payload.get("methods", [])) == EXPECTED_BASELINE_METHODS
+            and psf_methods == EXPECTED_BASELINE_METHODS
+            and set(view_methods) == {"CC", "CL"}
+            and all(
+                methods == EXPECTED_BASELINE_METHODS
+                for methods in view_methods.values()
+            )
+        )
+    if name == "conventional-timing":
+        rows = payload.get("rows", [])
+        return bool(
+            payload.get("quick_engineering_run") is False
+            and payload.get("publication_ready") is True
+            and int(payload.get("requested_warmups", 0)) == args.timing_warmups
+            and int(payload.get("requested_repetitions", 0))
+            == args.timing_repetitions
+            and {row.get("method") for row in rows}
+            == EXPECTED_BASELINE_METHODS
+            and all(
+                int(row.get("n", 0)) == args.timing_repetitions
+                and row.get("scope") == "post-delay beamformer kernel"
+                for row in rows
             )
         )
     rows = payload.get("rows", [])

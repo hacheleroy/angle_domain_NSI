@@ -18,6 +18,9 @@ from typing import Any, Iterable
 
 
 METHODS = ("DAS", "Angular CF-DAS", "Receive-NSI", "Angle-NSI")
+CONVENTIONAL_METHODS = (
+    "DAS", "Receive CF-DAS", "MV", "F-DMAS", "Receive-NSI", "Angle-NSI"
+)
 TIMING_METHODS = {
     "DAS": "DAS / coherent compounding",
     "Angular CF-DAS": "Angular CF-DAS",
@@ -112,6 +115,9 @@ def method_label(method: str) -> str:
     return {
         "DAS": "DAS",
         "Angular CF-DAS": "Angular CF-DAS",
+        "Receive CF-DAS": "Receive CF-DAS",
+        "MV": "MV",
+        "F-DMAS": "F-DMAS",
         "Receive-NSI": "Receive-NSI",
         "Angle-NSI": "Angle-NSI",
     }[method]
@@ -147,6 +153,12 @@ def main() -> None:
     )
     timing = read_json(
         results / "timing_scaling" / "nsi_timing_scaling_summary.json"
+    )
+    conventional = read_json(
+        results / "conventional_baselines" / "conventional_baseline_summary.json"
+    )
+    conventional_timing = read_json(
+        results / "conventional_timing" / "conventional_timing_summary.json"
     )
 
     problems: list[str] = []
@@ -234,6 +246,43 @@ def main() -> None:
             problems.append(
                 f"timing suite control {control_id} does not contain all four methods"
             )
+    expected_conventional = set(CONVENTIONAL_METHODS)
+    if conventional.get("metadata_only") is not False:
+        problems.append("conventional-baseline output is metadata-only")
+    if conventional.get("quick_engineering_run"):
+        problems.append("conventional-baseline comparison was run with --quick")
+    if conventional.get("publication_ready") is not True:
+        problems.append("conventional-baseline comparison is not publication-ready")
+    if set(conventional.get("methods", [])) != expected_conventional:
+        problems.append("conventional-baseline comparison is missing one or more methods")
+    conventional_psf_rows = conventional.get("experimental_psf", {}).get(
+        "metrics", []
+    )
+    if {row.get("method") for row in conventional_psf_rows} != expected_conventional:
+        problems.append("conventional experimental PSF comparison is incomplete")
+    conventional_views = conventional.get("carotid_views", [])
+    conventional_view_methods = {
+        view.get("view"): {row.get("method") for row in view.get("metrics", [])}
+        for view in conventional_views
+    }
+    if set(conventional_view_methods) != {"CC", "CL"} or any(
+        methods != expected_conventional
+        for methods in conventional_view_methods.values()
+    ):
+        problems.append("conventional carotid comparison is incomplete")
+    if conventional_timing.get("quick_engineering_run"):
+        problems.append("conventional timing was run with --quick")
+    if conventional_timing.get("publication_ready") is not True:
+        problems.append("conventional timing is not publication-ready")
+    if int(conventional_timing.get("requested_warmups", 0)) < 10:
+        problems.append("conventional timing used fewer than 10 warm-ups")
+    if int(conventional_timing.get("requested_repetitions", 0)) < 50:
+        problems.append("conventional timing used fewer than 50 repetitions")
+    conventional_timing_rows = conventional_timing.get("rows", [])
+    if {row.get("method") for row in conventional_timing_rows} != expected_conventional:
+        problems.append("conventional timing is missing one or more methods")
+    if any(int(row.get("n", 0)) < 50 for row in conventional_timing_rows):
+        problems.append("one or more conventional timing rows has fewer than 50 samples")
     if problems and not args.allow_incomplete:
         raise SystemExit(
             "Revision assets were not materialized:\n- " + "\n- ".join(problems)
@@ -249,6 +298,16 @@ def main() -> None:
         row for row in timing.get("rows", []) if row.get("run_id") == "grid_128x256"
     ]
     timing_by_method = {row["method"]: row for row in baseline_rows}
+    conventional_psf_by_method = {
+        row["method"]: row for row in conventional_psf_rows
+    }
+    conventional_by_view = {
+        view["view"]: {row["method"]: row for row in view["metrics"]}
+        for view in conventional_views
+    }
+    conventional_timing_by_method = {
+        row["method"]: row for row in conventional_timing_rows
+    }
 
     for method in METHODS:
         if method not in point_by_method:
@@ -260,6 +319,14 @@ def main() -> None:
         for view in ("CC", "CL"):
             if method not in bmode_by_view.get(view, {}):
                 raise KeyError(f"Missing {view} carotid row for {method}")
+    for method in CONVENTIONAL_METHODS:
+        if method not in conventional_psf_by_method:
+            raise KeyError(f"Missing conventional PSF row for {method}")
+        if method not in conventional_timing_by_method:
+            raise KeyError(f"Missing conventional timing row for {method}")
+        for view in ("CC", "CL"):
+            if method not in conventional_by_view.get(view, {}):
+                raise KeyError(f"Missing conventional {view} row for {method}")
 
     das_width = finite(point_by_method["DAS"]["lateral_fwhm_mm"], "DAS width")
     receive_width = finite(
@@ -317,6 +384,36 @@ def main() -> None:
         tex_macro("TimingReceiveTransferMib", fmt(finite(timing_by_method[TIMING_METHODS["Receive-NSI"]]["timed_total_transfer_bytes"], "Receive bytes") / 2**20, 2)),
         tex_macro("TimingAngleTransferMib", fmt(finite(timing_by_method[TIMING_METHODS["Angle-NSI"]]["timed_total_transfer_bytes"], "Angle bytes") / 2**20, 2)),
     ]
+    conventional_macro_stems = {
+        "DAS": "ConventionalDas",
+        "Receive CF-DAS": "ConventionalCf",
+        "MV": "ConventionalMv",
+        "F-DMAS": "ConventionalFdmas",
+        "Receive-NSI": "ConventionalReceiveNsi",
+        "Angle-NSI": "ConventionalAngleNsi",
+    }
+    for method in CONVENTIONAL_METHODS:
+        stem = conventional_macro_stems[method]
+        macros.extend(
+            [
+                tex_macro(
+                    f"{stem}PsfWidth",
+                    fmt(conventional_psf_by_method[method]["lateral_width_mm"], 4),
+                ),
+                tex_macro(
+                    f"{stem}CcGcnr",
+                    fmt(conventional_by_view["CC"][method]["gcnr"]),
+                ),
+                tex_macro(
+                    f"{stem}ClGcnr",
+                    fmt(conventional_by_view["CL"][method]["gcnr"]),
+                ),
+                tex_macro(
+                    f"{stem}KernelTime",
+                    fmt(conventional_timing_by_method[method]["median_ms"], 3),
+                ),
+            ]
+        )
     write_text(output / "revision_results.tex", "\n".join(macros))
 
     tradeoff_lines = [
@@ -397,6 +494,89 @@ def main() -> None:
         )
     timing_lines.extend([r"\bottomrule", r"\end{tabular}"])
     write_text(output / "table_timing_baseline.tex", "\n".join(timing_lines))
+
+    conventional_lines = [
+        r"\begin{tabular}{@{}lrrrrr@{}}",
+        r"\toprule",
+        r"Method & Lateral width & Peak/background & CC gCNR & CL gCNR & Kernel time \\",
+        r" & (mm) & (dB) & & & (ms) \\",
+        r"\midrule",
+    ]
+    for method in CONVENTIONAL_METHODS:
+        psf_row = conventional_psf_by_method[method]
+        conventional_lines.append(
+            f"{method_label(method)} & {fmt(psf_row['lateral_width_mm'], 4)} & "
+            f"{fmt(psf_row['peak_to_median_background_db'], 2)} & "
+            f"{fmt(conventional_by_view['CC'][method]['gcnr'])} & "
+            f"{fmt(conventional_by_view['CL'][method]['gcnr'])} & "
+            f"{fmt(conventional_timing_by_method[method]['median_ms'], 3)} \\\\"
+        )
+    conventional_lines.extend([r"\bottomrule", r"\end{tabular}"])
+    write_text(
+        output / "table_conventional_baselines.tex",
+        "\n".join(conventional_lines),
+    )
+
+    complexity_labels = {
+        "DAS": r"$O(M)$",
+        "Receive CF-DAS": r"$O(M)$",
+        "MV": r"$O((2K+1)(M-L+1)L^2+L^3)$",
+        "F-DMAS": r"$O(M^2)$ direct; $O(M)$ exact identity",
+        "Receive-NSI": r"$O(M)$",
+        "Angle-NSI": r"$O(M)$",
+    }
+    conventional_das_time = finite(
+        conventional_timing_by_method["DAS"]["median_ms"],
+        "conventional DAS timing",
+    )
+    conventional_timing_lines = [
+        r"\begin{tabular}{@{}lrrl@{}}",
+        r"\toprule",
+        r"Method & Median (ms) & Relative to DAS & Leading order per pixel/angle \\",
+        r"\midrule",
+    ]
+    for method in CONVENTIONAL_METHODS:
+        median = finite(
+            conventional_timing_by_method[method]["median_ms"],
+            f"{method} conventional timing",
+        )
+        conventional_timing_lines.append(
+            f"{method_label(method)} & {median:.3f} & "
+            f"{median / conventional_das_time:.2f} & {complexity_labels[method]} \\\\"
+        )
+    conventional_timing_lines.extend([r"\bottomrule", r"\end{tabular}"])
+    write_text(
+        output / "table_conventional_timing.tex",
+        "\n".join(conventional_timing_lines),
+    )
+
+    mv_view_windows = {
+        view["view"]: int(view["mv_temporal_half_window_samples"])
+        for view in conventional_views
+    }
+    parameter_lines = [
+        r"\begin{tabular}{@{}lp{0.74\linewidth}@{}}",
+        r"\toprule",
+        r"Method & Fixed implementation choices \\",
+        r"\midrule",
+        r"Receive CF-DAS & Receive-aperture CF per transmit angle; no fitted parameter. \\",
+        (
+            r"MV & $L=\lfloor M_{\mathrm{active}}/2\rfloor$; all overlapping "
+            r"subarrays; loading $\mathrm{tr}(R)/(100L)$; $K=0$ for the point "
+            f"target and axial half-windows $K={mv_view_windows['CC']}$ (CC), "
+            f"$K={mv_view_windows['CL']}$ (CL). \\\\"
+        ),
+        (
+            r"F-DMAS & Signed square-root products for every $i<j$ pair; Kaiser FIR "
+            r"edges $(1.5,1.75,2.5,2.75)f_0$; analytic signal after filtering. \\"
+        ),
+        r"\bottomrule",
+        r"\end{tabular}",
+    ]
+    write_text(
+        output / "table_conventional_parameters.tex",
+        "\n".join(parameter_lines),
+    )
 
     c_lines = [
         r"\begin{tabular}{@{}lrrrr@{}}",
@@ -481,6 +661,11 @@ def main() -> None:
         results / "doppler" / "mbtrace_c_sensitivity.png": output / "supplementary" / "figureS7_mbtrace_c_sensitivity.png",
         results / "bmode" / "bmode_nsi_c_sensitivity.png": output / "supplementary" / "figureS8_carotid_c_sensitivity.png",
         results / "experimental_psf" / "picmus_experimental_psf_c_sensitivity.png": output / "supplementary" / "figureS9_experimental_psf_c_sensitivity.png",
+        results / "conventional_baselines" / "conventional_baseline_experimental_psf.png": output / "reviewer_comparison" / "conventional_experimental_psf.png",
+        results / "conventional_baselines" / "conventional_baseline_experimental_psf_profiles.png": output / "reviewer_comparison" / "conventional_experimental_psf_profiles.png",
+        results / "conventional_baselines" / "conventional_baseline_carotid_CL.png": output / "reviewer_comparison" / "conventional_carotid_longitudinal.png",
+        results / "conventional_baselines" / "conventional_baseline_carotid_CC.png": output / "reviewer_comparison" / "conventional_carotid_cross_section.png",
+        results / "conventional_timing" / "conventional_timing_summary.png": output / "reviewer_comparison" / "conventional_timing.png",
     }
     for source, destination in figure_map.items():
         copy_required(source, destination)

@@ -14,6 +14,12 @@ The repository compares four reconstructions:
 4. angle-domain NSI (Angle-NSI), in which the zero-sum weights are applied across the
    per-angle complex image stack.
 
+The major-revision workflow additionally contains a reviewer-facing
+six-method comparison with conventional receive CF-DAS, Capon minimum
+variance (MV), and filtered DMAS (F-DMAS). These are implemented in Python/
+CuPy from the original definitions; the corresponding USTB implementations
+at a pinned commit are recorded as an independent implementation reference.
+
 Angle-NSI is a post-receive-beamforming construction. It is not algebraically
 identical to Receive-NSI and is not presented as a performance-equivalent
 replacement. Its intended use is an environment that exposes phase-preserving
@@ -63,6 +69,8 @@ python -m unittest discover -s tests -v
 python src/benchmark_nsi.py --help
 python src/benchmark_scaling.py --help
 python src/picmus_experimental_psf.py --help
+python src/conventional_baseline_comparison.py --help
+python src/benchmark_conventional.py --help
 python src/simulation_robustness.py --help
 ```
 
@@ -74,6 +82,10 @@ python src/simulation_robustness.py --quick
 ```
 
 Quick-mode values are engineering checks and must not be used in publications.
+
+```bash
+python src/benchmark_conventional.py --quick
+```
 
 ## Reproduce the reported analyses
 
@@ -170,6 +182,50 @@ together with the central target near 37.5 mm quantify lateral variability.
 Use `--metadata-only` to validate the HDF5 dataset, phantom, and scan files on a
 CPU-only machine.
 
+### Conventional CF-DAS, MV, and F-DMAS comparison
+
+The dedicated comparison preserves the established four-method studies and
+uses the same receive delays, linear interpolation, dynamic aperture, angle
+set, and experimental inputs for all methods:
+
+```bash
+python src/conventional_baseline_comparison.py \
+  --output-dir results/generated/conventional_baselines
+```
+
+It reconstructs the representative central PICMUS target near 37.5 mm and
+both carotid views with DAS, receive CF-DAS, MV, F-DMAS, Receive-NSI, and
+Angle-NSI. The fixed baseline choices are:
+
+- receive CF is evaluated over the active receive aperture for each transmit
+  angle and applied to that complex DAS field before coherent compounding;
+- MV uses all overlapping subarrays with
+  `L=floor(M_active/2)`, diagonal loading `trace(R)/(100L)`, no temporal
+  averaging for the point target, and a 1.5-wavelength axial half-window for
+  the diffuse carotid data;
+- F-DMAS uses delayed real RF, signed square-root pair products, a Kaiser FIR
+  with stop/pass/pass/stop edges `(1.5, 1.75, 2.5, 2.75)*f0`, and Hilbert
+  envelope detection. It is reconstructed at 0.02 mm axial spacing so the
+  band near `2*f0` is below Nyquist.
+
+Interrupted comparison runs reuse configuration- and input-validated caches
+for the completed PSF and carotid cases. Use `--force` only to invalidate
+those caches. A CPU-only input check is available with `--metadata-only`.
+
+The common post-delay kernel benchmark is:
+
+```bash
+python src/benchmark_conventional.py \
+  --warmups 10 \
+  --repetitions 50 \
+  --output-dir results/generated/conventional_timing
+```
+
+It records synchronized wall-clock measurements and leading-order complexity
+for all six methods. Transfers, delay calculation, and interpolation are
+excluded equally; MV covariance/solve and F-DMAS filtering/Hilbert formation
+are included.
+
 ### Open-NSI MBTrace Doppler data
 
 Place `MBTrace.mat` as described in `data/README.md`, then:
@@ -201,7 +257,8 @@ python scripts/run_revision_gpu.py --device 0
 ```
 
 The workflow writes a manifest after every step and reuses completed outputs on
-restart. Add `--force` to repeat them. Its final strict validation step writes
+restart. It now includes the conventional-baseline reconstruction and timing
+stages. Add `--force` to repeat every stage. Its final strict validation step writes
 the publication tables, LaTeX result macros, and standardized figure files to
 `results/generated/revision/manuscript_assets/`. It refuses metadata-only PSF
 results, quick timing runs, incomplete benchmark cases, or fewer than 10
@@ -224,6 +281,12 @@ outputs and the post-run validation checklist.
   therefore defined relative to the unnormalized reference sum `U`.
 - Angular CF-DAS uses `|sum_k B_k|^2 / (K sum_k |B_k|^2)` over the focused
   per-angle image ensemble and multiplies that factor by the DAS envelope.
+- Reviewer-facing receive CF-DAS is distinct from angular CF-DAS: its
+  coherence ensemble is the active receive aperture within each transmit
+  angle.
+- F-DMAS pair products are evaluated through an exact algebraic reduction
+  that is unit-tested against the literal `i<j` double sum; it does not change
+  the Matrone beamformer output.
 - External datasets are not redistributed. Their placement and provenance are
   documented under `data/`.
 

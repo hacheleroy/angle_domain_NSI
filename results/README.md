@@ -27,3 +27,11 @@ Reported subdirectories map to scripts as follows:
 | `timing/` | `src/benchmark_nsi.py` |
 | `bmode/` | `src/bmode_picmus.py` |
 | `doppler/` | `src/doppler_mbtrace.py` |
+| `conventional_baselines/` | `src/conventional_baseline_comparison.py` |
+| `conventional_timing/` | `src/benchmark_conventional.py` |
+
+The conventional-baseline outputs are generated during the major-revision
+workflow and are not yet part of the immutable `reported/` snapshot. Their
+JSON files record the exact CF, MV, and F-DMAS definitions, the pinned USTB
+reference commit, fine F-DMAS axial sampling, GPU/software versions, and the
+publication-readiness checks.

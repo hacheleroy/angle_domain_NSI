@@ -117,6 +117,63 @@ class RevisionWorkflowTests(unittest.TestCase):
         path = self.write_json("timing.json", payload)
         self.assertFalse(runner.reusable_output("timing", path, self.args))
 
+    @staticmethod
+    def complete_conventional_payload() -> dict:
+        methods = sorted(runner.EXPECTED_BASELINE_METHODS)
+        return {
+            "metadata_only": False,
+            "quick_engineering_run": False,
+            "publication_ready": True,
+            "methods": methods,
+            "experimental_psf": {
+                "metrics": [{"method": method} for method in methods]
+            },
+            "carotid_views": [
+                {
+                    "view": view,
+                    "metrics": [{"method": method} for method in methods],
+                }
+                for view in ("CC", "CL")
+            ],
+        }
+
+    def test_conventional_baseline_reuse_requires_all_six_methods(self):
+        payload = self.complete_conventional_payload()
+        path = self.write_json("conventional.json", payload)
+        self.assertTrue(
+            runner.reusable_output("conventional-baselines", path, self.args)
+        )
+        payload["carotid_views"][0]["metrics"].pop()
+        path = self.write_json("conventional.json", payload)
+        self.assertFalse(
+            runner.reusable_output("conventional-baselines", path, self.args)
+        )
+
+    def test_conventional_timing_reuse_requires_publication_counts(self):
+        payload = {
+            "quick_engineering_run": False,
+            "publication_ready": True,
+            "requested_warmups": 10,
+            "requested_repetitions": 50,
+            "rows": [
+                {
+                    "method": method,
+                    "n": 50,
+                    "scope": "post-delay beamformer kernel",
+                }
+                for method in runner.EXPECTED_BASELINE_METHODS
+            ],
+        }
+        path = self.write_json("conventional_timing.json", payload)
+        self.assertTrue(
+            runner.reusable_output("conventional-timing", path, self.args)
+        )
+        payload["publication_ready"] = False
+        path = self.write_json("conventional_timing.json", payload)
+        self.assertFalse(
+            runner.reusable_output("conventional-timing", path, self.args)
+        )
+
     def test_manuscript_assets_are_always_regenerated(self):
         path = self.write_json("assets.json", {"publication_checks_passed": True})
         self.assertFalse(
