@@ -42,6 +42,7 @@ EXPECTED_C_VALUES = {0.02, 0.05, 0.10, 0.20}
 EXPECTED_BASELINE_METHODS = {
     "DAS", "Receive CF-DAS", "MV", "F-DMAS", "Receive-NSI", "Angle-NSI"
 }
+CONVENTIONAL_BASELINE_SCHEMA_VERSION = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -239,7 +240,9 @@ def reusable_output(
             for view in views
         }
         return bool(
-            payload.get("metadata_only") is False
+            int(payload.get("schema_version", 0))
+            == CONVENTIONAL_BASELINE_SCHEMA_VERSION
+            and payload.get("metadata_only") is False
             and payload.get("quick_engineering_run") is False
             and payload.get("publication_ready") is True
             and set(payload.get("methods", [])) == EXPECTED_BASELINE_METHODS

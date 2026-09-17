@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -13,13 +14,19 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from adaptive_beamforming import MvConfiguration, design_fdmas_fir  # noqa: E402
+from adaptive_beamforming import (  # noqa: E402
+    MvConfiguration,
+    design_fdmas_fir,
+    signed_sqrt_pair_sum,
+)
 from benchmark_conventional import METHODS, execute_method  # noqa: E402
 from conventional_baseline_comparison import (  # noqa: E402
     compute_gcnr,
     reconstruct_fdmas,
     reconstruct_iq_methods,
     resample_regular_image,
+    usable_complete_image,
+    usable_positive_image,
 )
 from picmus_io import PicmusDataset  # noqa: E402
 
@@ -76,6 +83,19 @@ class ConventionalPipelineTests(unittest.TestCase):
         self.assertAlmostEqual(
             compute_gcnr(np.zeros(100), np.ones(100), 20), 1.0
         )
+
+    def test_positive_image_validation_rejects_empty_or_invalid_cache(self):
+        self.assertFalse(usable_positive_image(None))
+        self.assertFalse(usable_positive_image(np.zeros((2, 3))))
+        self.assertFalse(usable_positive_image(np.asarray([0.0, np.nan])))
+        self.assertTrue(usable_positive_image(np.asarray([0.0, 1.0])))
+
+    def test_complete_image_validation_rejects_zero_lateral_line(self):
+        complete = np.asarray([[0.0, 1.0], [2.0, 0.0]])
+        incomplete = np.asarray([[0.0, 1.0], [0.0, 0.0]])
+        self.assertTrue(usable_complete_image(complete))
+        self.assertFalse(usable_complete_image(incomplete))
+        self.assertFalse(usable_complete_image(np.asarray([0.0, 1.0])))
 
     def test_every_benchmark_method_runs_with_numpy_backend(self):
         rng = np.random.default_rng(8)
@@ -168,6 +188,47 @@ class ConventionalPipelineTests(unittest.TestCase):
         self.assertEqual(fdmas.shape, (x_m.size, fine_z.size))
         self.assertTrue(np.all(np.isfinite(fdmas)))
         self.assertGreater(metadata["fir_num_taps"], 1)
+        fdmas_one_line_chunks, chunk_metadata = reconstruct_fdmas(
+            dataset,
+            np.arange(angles),
+            x_m,
+            fine_z,
+            carrier_frequency_hz=1.0e6,
+            f_number=1.0,
+            filter_configuration=None,
+            cp=cp,
+            label="test chunked",
+            x_chunk_lines=1,
+        )
+        np.testing.assert_allclose(fdmas_one_line_chunks, fdmas)
+        self.assertEqual(chunk_metadata["requested_lateral_chunk_lines"], 1)
+
+        def fail_multiline_batches(delayed_rf, active_mask, *, xp):
+            if delayed_rf.shape[0] > fine_z.size:
+                return xp.zeros(delayed_rf.shape[0], dtype=delayed_rf.dtype)
+            return signed_sqrt_pair_sum(delayed_rf, active_mask, xp=xp)
+
+        with patch(
+            "conventional_baseline_comparison.signed_sqrt_pair_sum",
+            side_effect=fail_multiline_batches,
+        ):
+            fdmas_fallback, fallback_metadata = reconstruct_fdmas(
+                dataset,
+                np.arange(angles),
+                x_m,
+                fine_z,
+                carrier_frequency_hz=1.0e6,
+                f_number=1.0,
+                filter_configuration=None,
+                cp=cp,
+                label="test adaptive fallback",
+                x_chunk_lines=2,
+            )
+        np.testing.assert_allclose(fdmas_fallback, fdmas_one_line_chunks)
+        self.assertGreater(fallback_metadata["adaptive_batch_retries"], 0)
+        self.assertEqual(
+            fallback_metadata["validated_lateral_batch_sizes"], [1, 1]
+        )
 
 
 if __name__ == "__main__":

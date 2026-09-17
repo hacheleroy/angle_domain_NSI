@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import hashlib
 import importlib.metadata
 import json
@@ -74,6 +75,7 @@ METHODS = (
     "Angle-NSI",
 )
 IQ_METHODS = tuple(method for method in METHODS if method != "F-DMAS")
+FDMAS_X_CHUNK_LINES = 32
 COLORS = {
     "DAS": "#6a3d9a",
     "Receive CF-DAS": "#2ca02c",
@@ -293,6 +295,44 @@ def save_image_cache(
     write_json(metadata_path, {"signature": expected_signature, "methods": METHODS})
 
 
+def usable_positive_image(values: np.ndarray | None) -> bool:
+    """Return whether an envelope image is finite and contains signal."""
+
+    if values is None:
+        return False
+    array = np.asarray(values)
+    return bool(
+        array.size
+        and np.all(np.isfinite(array))
+        and float(np.max(array)) > 0.0
+    )
+
+
+def usable_complete_image(values: np.ndarray | None) -> bool:
+    """Return whether every lateral line of a 2-D envelope contains signal.
+
+    F-DMAS is reconstructed in independent lateral batches.  A global peak
+    check is insufficient because a failed batch can leave an otherwise
+    finite image with one or more all-zero lateral lines.
+    """
+
+    if not usable_positive_image(values):
+        return False
+    array = np.asarray(values)
+    if array.ndim != 2 or array.shape[0] == 0:
+        return False
+    line_peaks = np.max(np.abs(array), axis=1)
+    return bool(np.all(np.isfinite(line_peaks)) and np.all(line_peaks > 0.0))
+
+
+def prepare_fdmas_gpu(cp: Any) -> None:
+    """Start F-DMAS after releasing arrays from the preceding IQ methods."""
+
+    cp.cuda.Stream.null.synchronize()
+    gc.collect()
+    cp.get_default_memory_pool().free_all_blocks()
+
+
 def regular_axis(lower: float, upper: float, spacing: float) -> np.ndarray:
     count = int(np.ceil((upper - lower) / spacing)) + 1
     return np.linspace(lower, upper, count, dtype=np.float32)
@@ -431,51 +471,174 @@ def reconstruct_fdmas(
     filter_configuration: FdmasFilterConfiguration,
     cp: Any,
     label: str,
+    x_chunk_lines: int = FDMAS_X_CHUNK_LINES,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    points_m = regular_points(x_m, z_m)
-    receive_time, aperture, _ = dynamic_aperture_tables(
-        points_m,
-        dataset.probe_geometry_m,
-        f_number=f_number,
-        sound_speed_m_s=dataset.sound_speed_m_s,
-    )
+    if x_chunk_lines < 1:
+        raise ValueError("F-DMAS lateral chunk size must be positive.")
     raw_gpu = cp.asarray(dataset.data[:, :, angle_indices].real, dtype=cp.float32)
-    receive_time_gpu = cp.asarray(receive_time, dtype=cp.float32)
-    aperture_gpu = cp.asarray(aperture, dtype=cp.float32)
-    pair_sum = cp.zeros(points_m.shape[0], dtype=cp.float32)
     selected_angles = dataset.angles_rad[angle_indices]
-    for local_index, angle_rad in enumerate(selected_angles):
-        focused_rf, mask = focused_samples(
-            raw_gpu,
-            local_index,
-            float(angle_rad),
-            points_m,
-            receive_time_gpu,
-            aperture_gpu,
-            sampling_frequency_hz=dataset.sampling_frequency_hz,
-            sound_speed_m_s=dataset.sound_speed_m_s,
-            initial_time_s=dataset.initial_time_s,
-            carrier_frequency_hz=None,
-            cp=cp,
-        )
-        pair_sum += signed_sqrt_pair_sum(focused_rf, mask, xp=cp)
-        if (local_index + 1) % 5 == 0 or local_index + 1 == len(selected_angles):
-            print(f"  {label}: F-DMAS {local_index + 1}/{len(selected_angles)} angles")
-
     spacing_m = float(np.median(np.diff(z_m)))
     depth_sampling_hz = dataset.sound_speed_m_s / (2.0 * spacing_m)
     coefficients, filter_metadata = design_fdmas_fir(
         carrier_frequency_hz, depth_sampling_hz, filter_configuration
     )
-    analytic = fdmas_analytic_image(
-        pair_sum.reshape(x_m.size, z_m.size),
-        cp.asarray(coefficients),
-        depth_axis=1,
-        xp=cp,
+    coefficients_gpu = cp.asarray(coefficients)
+    envelope = np.full((x_m.size, z_m.size), np.nan, dtype=np.float32)
+    pair_peak = 0.0
+    analytic_peak = 0.0
+    requested_chunk_count = int(np.ceil(x_m.size / x_chunk_lines))
+    successful_batch_sizes: list[int] = []
+    fallback_count = 0
+
+    # Lateral scan lines are independent.  Chunking avoids very large CuPy
+    # advanced-index gathers without changing any delay, pair product, filter,
+    # or coherent angular sum.  Some CUDA/CuPy combinations have silently
+    # returned zero-valued large gathers.  Every lateral line is therefore
+    # validated.  A failed batch is recomputed as two smaller exact batches,
+    # recursively down to one line, rather than being accepted or approximated.
+    def reconstruct_batch(begin: int, end: int) -> None:
+        nonlocal pair_peak, analytic_peak, fallback_count
+        chunk_x = x_m[begin:end]
+        points_m = regular_points(chunk_x, z_m)
+        receive_time, aperture, _ = dynamic_aperture_tables(
+            points_m,
+            dataset.probe_geometry_m,
+            f_number=f_number,
+            sound_speed_m_s=dataset.sound_speed_m_s,
+        )
+        receive_time_gpu = cp.asarray(receive_time, dtype=cp.float32)
+        aperture_gpu = cp.asarray(aperture, dtype=cp.float32)
+        pair_sum = cp.zeros(points_m.shape[0], dtype=cp.float32)
+
+        for local_index, angle_rad in enumerate(selected_angles):
+            focused_rf, mask = focused_samples(
+                raw_gpu,
+                local_index,
+                float(angle_rad),
+                points_m,
+                receive_time_gpu,
+                aperture_gpu,
+                sampling_frequency_hz=dataset.sampling_frequency_hz,
+                sound_speed_m_s=dataset.sound_speed_m_s,
+                initial_time_s=dataset.initial_time_s,
+                carrier_frequency_hz=None,
+                cp=cp,
+            )
+            pair_sum += signed_sqrt_pair_sum(focused_rf, mask, xp=cp)
+        del focused_rf, mask
+
+        pair_image = pair_sum.reshape(chunk_x.size, z_m.size)
+        pair_line_peaks_gpu = cp.max(cp.abs(pair_image), axis=1)
+        pair_line_valid_gpu = cp.all(cp.isfinite(pair_image), axis=1) & (
+            pair_line_peaks_gpu > 0.0
+        )
+        pair_line_peaks = np.asarray(cp.asnumpy(pair_line_peaks_gpu), dtype=float)
+        pair_line_valid = np.asarray(cp.asnumpy(pair_line_valid_gpu), dtype=bool)
+        chunk_pair_peak = float(np.max(pair_line_peaks))
+        if not np.all(pair_line_valid):
+            failed = (np.flatnonzero(~pair_line_valid) + begin + 1).tolist()
+            del receive_time_gpu, aperture_gpu, pair_sum, pair_image
+            cp.cuda.Stream.null.synchronize()
+            cp.get_default_memory_pool().free_all_blocks()
+            if end - begin > 1:
+                midpoint = begin + (end - begin) // 2
+                fallback_count += 1
+                print(
+                    f"  {label}: F-DMAS batch lines {begin + 1}-{end} "
+                    f"failed pair validation at image lines {failed}; "
+                    f"retrying as {begin + 1}-{midpoint} and "
+                    f"{midpoint + 1}-{end}."
+                )
+                reconstruct_batch(begin, midpoint)
+                reconstruct_batch(midpoint, end)
+                return
+            raise RuntimeError(
+                f"{label} F-DMAS pair accumulation remained empty or "
+                f"non-finite for image line {begin + 1} after single-line "
+                "fallback."
+            )
+
+        analytic = fdmas_analytic_image(
+            pair_image,
+            coefficients_gpu,
+            depth_axis=1,
+            xp=cp,
+        )
+        analytic_line_peaks_gpu = cp.max(cp.abs(analytic), axis=1)
+        analytic_line_valid_gpu = cp.all(cp.isfinite(analytic), axis=1) & (
+            analytic_line_peaks_gpu > 0.0
+        )
+        analytic_line_peaks = np.asarray(
+            cp.asnumpy(analytic_line_peaks_gpu), dtype=float
+        )
+        analytic_line_valid = np.asarray(
+            cp.asnumpy(analytic_line_valid_gpu), dtype=bool
+        )
+        chunk_analytic_peak = float(np.max(analytic_line_peaks))
+        if not np.all(analytic_line_valid):
+            failed = (np.flatnonzero(~analytic_line_valid) + begin + 1).tolist()
+            del receive_time_gpu, aperture_gpu, pair_sum, pair_image, analytic
+            cp.cuda.Stream.null.synchronize()
+            cp.get_default_memory_pool().free_all_blocks()
+            if end - begin > 1:
+                midpoint = begin + (end - begin) // 2
+                fallback_count += 1
+                print(
+                    f"  {label}: F-DMAS batch lines {begin + 1}-{end} "
+                    f"failed filter validation at image lines {failed}; "
+                    f"retrying as {begin + 1}-{midpoint} and "
+                    f"{midpoint + 1}-{end}."
+                )
+                reconstruct_batch(begin, midpoint)
+                reconstruct_batch(midpoint, end)
+                return
+            raise RuntimeError(
+                f"{label} F-DMAS filtering/Hilbert output remained empty or "
+                f"non-finite for image line {begin + 1} after single-line "
+                "fallback."
+            )
+
+        pair_peak = max(pair_peak, chunk_pair_peak)
+        analytic_peak = max(analytic_peak, chunk_analytic_peak)
+        envelope[begin:end] = cp.asnumpy(cp.abs(analytic))
+        successful_batch_sizes.append(end - begin)
+        cp.cuda.Stream.null.synchronize()
+        del receive_time_gpu, aperture_gpu, pair_sum, pair_image, analytic
+        cp.get_default_memory_pool().free_all_blocks()
+        print(
+            f"  {label}: validated F-DMAS batch lines {begin + 1}-{end} "
+            f"({end - begin} lines, {len(selected_angles)} angles)"
+        )
+
+    for begin in range(0, x_m.size, x_chunk_lines):
+        reconstruct_batch(begin, min(begin + x_chunk_lines, x_m.size))
+
+    if (
+        pair_peak <= 0.0
+        or analytic_peak <= 0.0
+        or not usable_complete_image(envelope)
+    ):
+        raise RuntimeError(
+            f"{label} F-DMAS output is incomplete after validated chunked "
+            "reconstruction "
+            f"(pair peak={pair_peak:.6e}, analytic peak={analytic_peak:.6e})."
+        )
+    print(
+        f"  {label}: F-DMAS stage peaks "
+        f"pair={pair_peak:.6e}, analytic={analytic_peak:.6e}; "
+        f"validated batches={len(successful_batch_sizes)}, "
+        f"adaptive retries={fallback_count}."
     )
-    envelope = cp.asnumpy(cp.abs(analytic))
-    cp.cuda.Stream.null.synchronize()
-    del raw_gpu, receive_time_gpu, aperture_gpu, pair_sum, analytic
+    filter_metadata["requested_lateral_chunk_lines"] = int(x_chunk_lines)
+    filter_metadata["requested_lateral_chunk_count"] = requested_chunk_count
+    filter_metadata["validated_lateral_batch_count"] = len(successful_batch_sizes)
+    filter_metadata["validated_lateral_batch_sizes"] = successful_batch_sizes
+    filter_metadata["adaptive_batch_retries"] = fallback_count
+    filter_metadata["lateral_chunking"] = (
+        "exact independent lateral-line batches with per-line validation and "
+        "recursive bisection fallback; no algorithmic approximation"
+    )
+    del raw_gpu, coefficients_gpu
     cp.get_default_memory_pool().free_all_blocks()
     return envelope, filter_metadata
 
@@ -571,25 +734,35 @@ def carotid_metric_rows(
         raise ValueError(f"The {view} baseline grid does not cover both ROIs.")
     rows = []
     for method in METHODS:
-        image = np.maximum(np.asarray(images[method], dtype=float), np.finfo(float).tiny)
+        image = np.maximum(
+            np.asarray(images[method], dtype=np.float64), np.finfo(float).tiny
+        )
         image_db = normalized_db(image)
         signal = image[signal_mask]
         background = image[background_mask]
         signal_db = image_db[signal_mask]
         background_db = image_db[background_mask]
         denominator = np.sqrt(np.var(signal) + np.var(background))
+        signal_mean = float(np.mean(signal, dtype=np.float64))
+        background_mean = float(np.mean(background, dtype=np.float64))
+        contrast_ratio_db = float(
+            20.0 * (np.log10(background_mean) - np.log10(signal_mean))
+        )
         rows.append(
             {
                 "case": "carotid",
                 "view": view,
                 "method": method,
                 "gcnr": compute_gcnr(signal_db, background_db, bins),
-                "contrast_ratio_db": float(20.0 * np.log10(background.mean() / signal.mean())),
-                "cnr": float(abs(background.mean() - signal.mean()) / max(denominator, np.finfo(float).tiny)),
+                "contrast_ratio_db": contrast_ratio_db,
+                "cnr": float(
+                    abs(background_mean - signal_mean)
+                    / max(denominator, np.finfo(float).tiny)
+                ),
                 "signal_pixel_count": int(signal.size),
                 "background_pixel_count": int(background.size),
-                "signal_mean_linear": float(signal.mean()),
-                "background_mean_linear": float(background.mean()),
+                "signal_mean_linear": signal_mean,
+                "background_mean_linear": background_mean,
             }
         )
     return rows
@@ -738,6 +911,7 @@ def psf_case(
     if cached is not None:
         print("Reusing conventional-baseline PSF cache.")
         flat_images, _ = cached
+        cache_changed = False
     else:
         print("Reconstructing representative experimental point target...")
         mv_configuration = MvConfiguration(
@@ -756,6 +930,15 @@ def psf_case(
             cp=cp,
             label="PSF",
         )
+        cache_changed = True
+
+    if not usable_positive_image(flat_images.get("F-DMAS")):
+        if cached is not None:
+            print(
+                "Cached PSF F-DMAS image is empty; preserving the five valid "
+                "methods and rebuilding F-DMAS only."
+            )
+        prepare_fdmas_gpu(cp)
         fdmas_spacing_m = args.fdmas_z_spacing_mm * 1e-3
         fdmas_z, _ = fdmas_padded_axis(
             min(float(grid.map_z_mm.min()), float(grid.axial_z_mm.min())) * 1e-3,
@@ -777,6 +960,12 @@ def psf_case(
             cp=cp,
             label="PSF",
         )
+        fdmas_source_peak = float(np.max(fdmas_image))
+        if not usable_positive_image(fdmas_image):
+            raise RuntimeError(
+                "F-DMAS produced an empty source envelope before PSF "
+                "resampling. The valid IQ cache was retained."
+            )
         fdmas_map = resample_regular_image(
             fdmas_image,
             fdmas_x,
@@ -801,6 +990,20 @@ def psf_case(
         flat_images["F-DMAS"] = np.concatenate(
             [fdmas_map.ravel(), fdmas_lateral, fdmas_axial]
         )
+        fdmas_resampled_peak = float(np.max(flat_images["F-DMAS"]))
+        if not usable_positive_image(flat_images["F-DMAS"]):
+            raise RuntimeError(
+                "F-DMAS became empty during PSF resampling. The valid IQ "
+                "cache was retained."
+            )
+        print(
+            "  PSF: validated F-DMAS envelope "
+            f"(source peak={fdmas_source_peak:.6e}, "
+            f"resampled peak={fdmas_resampled_peak:.6e})."
+        )
+        cache_changed = True
+
+    if cache_changed:
         save_image_cache(
             cache_path,
             cache_metadata,
@@ -910,6 +1113,7 @@ def carotid_case(
         images, cached_axes = cached
         x_m = cached_axes["x_m"]
         z_m = cached_axes["z_m"]
+        cache_changed = False
     else:
         print(f"Reconstructing carotid {view} conventional baseline comparison...")
         flat = reconstruct_iq_methods(
@@ -928,6 +1132,15 @@ def carotid_case(
             method: flat[method].reshape(x_m.size, z_m.size)
             for method in IQ_METHODS
         }
+        cache_changed = True
+
+    if not usable_complete_image(images.get("F-DMAS")):
+        if cached is not None:
+            print(
+                f"Cached carotid {view} F-DMAS image is empty or incomplete; "
+                "preserving the five valid methods and rebuilding F-DMAS only."
+            )
+        prepare_fdmas_gpu(cp)
         fdmas_z, _ = fdmas_padded_axis(
             float(z_m.min()),
             float(z_m.max()),
@@ -947,9 +1160,29 @@ def carotid_case(
             cp=cp,
             label=f"carotid {view}",
         )
+        fdmas_source_peak = float(np.max(fdmas_fine))
+        if not usable_complete_image(fdmas_fine):
+            raise RuntimeError(
+                f"F-DMAS produced an empty or incomplete source envelope for carotid "
+                f"{view}. The valid IQ cache was retained."
+            )
         images["F-DMAS"] = resample_regular_image(
             fdmas_fine, x_m, fdmas_z, x_m, z_m
         )
+        fdmas_resampled_peak = float(np.max(images["F-DMAS"]))
+        if not usable_complete_image(images["F-DMAS"]):
+            raise RuntimeError(
+                f"F-DMAS became empty or incomplete while resampling carotid {view}. "
+                "The valid IQ cache was retained."
+            )
+        print(
+            f"  carotid {view}: validated F-DMAS envelope "
+            f"(source peak={fdmas_source_peak:.6e}, "
+            f"resampled peak={fdmas_resampled_peak:.6e})."
+        )
+        cache_changed = True
+
+    if cache_changed:
         save_image_cache(
             cache_path,
             cache_metadata,
@@ -1032,7 +1265,7 @@ def main() -> None:
 
     base_metadata: dict[str, Any] = {
         "script": Path(__file__).name,
-        "schema_version": 1,
+        "schema_version": 2,
         "run_started_utc": datetime.now(timezone.utc).isoformat(),
         "methods": list(METHODS),
         "quick_engineering_run": bool(args.quick),
@@ -1071,6 +1304,8 @@ def main() -> None:
                 "processing_domain": "delayed real RF receive channels separately per transmit angle; pair sums are coherently accumulated before the linear FIR/Hilbert stages",
                 "input_prefilter": "the distributed PICMUS acquisition RF is used directly; no result-dependent input filter is fitted",
                 "fine_axial_spacing_mm": args.fdmas_z_spacing_mm,
+                "requested_lateral_chunk_lines": FDMAS_X_CHUNK_LINES,
+                "lateral_chunking": "exact independent batches with per-line validation and recursive bisection fallback; no algorithmic approximation",
                 "pair_evaluation": "exact O(M) algebraic identity, unit-tested against the literal O(M^2) i<j sum",
             },
             "nsi_dc_offset": args.nsi_c,

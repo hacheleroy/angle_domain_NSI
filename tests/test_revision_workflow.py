@@ -121,6 +121,7 @@ class RevisionWorkflowTests(unittest.TestCase):
     def complete_conventional_payload() -> dict:
         methods = sorted(runner.EXPECTED_BASELINE_METHODS)
         return {
+            "schema_version": runner.CONVENTIONAL_BASELINE_SCHEMA_VERSION,
             "metadata_only": False,
             "quick_engineering_run": False,
             "publication_ready": True,
@@ -144,6 +145,14 @@ class RevisionWorkflowTests(unittest.TestCase):
             runner.reusable_output("conventional-baselines", path, self.args)
         )
         payload["carotid_views"][0]["metrics"].pop()
+        path = self.write_json("conventional.json", payload)
+        self.assertFalse(
+            runner.reusable_output("conventional-baselines", path, self.args)
+        )
+
+    def test_conventional_baseline_reuse_rejects_stale_schema(self):
+        payload = self.complete_conventional_payload()
+        payload["schema_version"] -= 1
         path = self.write_json("conventional.json", payload)
         self.assertFalse(
             runner.reusable_output("conventional-baselines", path, self.args)

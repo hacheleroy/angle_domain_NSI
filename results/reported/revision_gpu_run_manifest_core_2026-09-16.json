@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-09-16T16:28:51.927851+00:00",
+  "device": "0",
+  "data_root": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data",
+  "output_root": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision",
+  "requested_steps": [
+    "theory",
+    "point-target",
+    "mbtrace",
+    "carotid",
+    "experimental-psf",
+    "timing",
+    "manuscript-assets"
+  ],
+  "steps": [
+    {
+      "name": "theory",
+      "status": "reused",
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/theory/angular_null_theory.json"
+    },
+    {
+      "name": "point-target",
+      "status": "reused",
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/point_target/simulation_psf_fwhm_summary.json"
+    },
+    {
+      "name": "mbtrace",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/src/doppler_mbtrace.py"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/doppler/mbtrace_c_sensitivity.json",
+      "started_utc": "2026-09-16T16:28:51.931966+00:00",
+      "status": "completed",
+      "duration_seconds": 51.98586749100002
+    },
+    {
+      "name": "carotid",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/src/bmode_picmus.py"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/bmode/bmode_nsi_c_sensitivity.json",
+      "started_utc": "2026-09-16T16:29:43.918522+00:00",
+      "status": "completed",
+      "duration_seconds": 53.93299429399997
+    },
+    {
+      "name": "experimental-psf",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/src/picmus_experimental_psf.py",
+        "--dataset",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/resolution_distorsion/resolution_distorsion_expe_dataset_rf.hdf5",
+        "--phantom",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/resolution_distorsion/resolution_distorsion_expe_phantom.hdf5",
+        "--scan",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/resolution_distorsion/resolution_distorsion_expe_scan.hdf5",
+        "--output-dir",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/experimental_psf",
+        "--device",
+        "0"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/experimental_psf/picmus_experimental_psf_summary.json",
+      "started_utc": "2026-09-16T16:30:37.852188+00:00",
+      "status": "completed",
+      "duration_seconds": 4.965915073000019
+    },
+    {
+      "name": "timing",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/src/benchmark_scaling.py",
+        "--output-dir",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/timing_scaling",
+        "--device",
+        "0",
+        "--warmups",
+        "10",
+        "--repetitions",
+        "50"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/timing_scaling/nsi_timing_scaling_summary.json",
+      "started_utc": "2026-09-16T16:30:42.818789+00:00",
+      "status": "completed",
+      "duration_seconds": 115.91664550600001
+    },
+    {
+      "name": "manuscript-assets",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/scripts/materialize_revision_assets.py",
+        "--results-root",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision",
+        "--output-dir",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/manuscript_assets"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/manuscript_assets/revision_asset_manifest.json",
+      "started_utc": "2026-09-16T16:32:38.737330+00:00",
+      "status": "completed",
+      "duration_seconds": 0.052960515999984636
+    }
+  ],
+  "completed_utc": "2026-09-16T16:32:38.790608+00:00",
+  "all_requested_steps_completed": true
+}

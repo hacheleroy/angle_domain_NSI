@@ -6,6 +6,11 @@ Henri Leroy.
 
 **Preprint:** [arXiv:2608.18252](https://arxiv.org/abs/2608.18252)
 
+Release `v1.1.0` is the reproducibility snapshot for the PMB major
+resubmission. It includes the reviewer-requested receive CF-DAS, MV and
+F-DMAS comparison, the corrected publication GPU records, and the exact
+F-DMAS batch validation used to prevent incomplete cached images.
+
 The repository compares four reconstructions:
 
 1. delay-and-sum (DAS) with coherent plane-wave compounding;
@@ -286,7 +291,9 @@ outputs and the post-run validation checklist.
   angle.
 - F-DMAS pair products are evaluated through an exact algebraic reduction
   that is unit-tested against the literal `i<j` double sum; it does not change
-  the Matrone beamformer output.
+  the Matrone beamformer output. Independent lateral batches are validated
+  line by line and recursively bisected if a CUDA/CuPy gather returns an empty
+  batch; this changes only execution granularity, not the beamformer.
 - External datasets are not redistributed. Their placement and provenance are
   documented under `data/`.
 

@@ -5,7 +5,7 @@ conventional baselines:
 
 - Python syntax compilation passed for every source, workflow, and test
   module.
-- Fifty-three CPU-side unit tests passed.
+- Fifty-seven CPU-side unit tests passed.
 - The tests cover symmetric angular weights and broadside zero weighting,
   timing statistics, the DAS/receive/angle benchmark execution paths with a
   NumPy stand-in backend, equivalence of streaming and stored angle-domain
@@ -23,10 +23,19 @@ conventional baselines:
 - A synthetic HDF5 metadata-only run validated all four input paths and the
   serialized fixed-parameter/provenance record for the new comparison.
 
-The earlier full GPU analyses were run by the author in the target CUDA
-environment and their outputs are preserved in the supplied revision-results
-archive. The conventional CF-DAS/MV/F-DMAS stages still require their first
-full run on that machine. This workspace does not provide the CUDA hardware or
-external datasets needed to execute them. Run the short conventional timing
-`--quick` check in the target environment before launching the publication
-configuration.
+The publication workflow was completed by the author in two phases on 16--17
+September 2026 with an NVIDIA RTX A2000, CuPy 14.1.1 and CUDA runtime 12.9.
+The corrected conventional-comparison v2 archive passed the strict
+publication gate: all six methods were present, the experimental PSF and both
+carotid views were complete, every F-DMAS lateral line contained finite
+positive signal, and the post-delay timing used 10 warm-ups and 50
+repetitions. The selected machine-readable outputs and the two run manifests,
+covering all requested workflow steps, are frozen under `results/reported/`
+alongside the final asset manifest.
+
+The final F-DMAS implementation releases the preceding IQ-method GPU buffers,
+processes independent lateral batches, validates every output line, and
+recursively bisects a failed batch down to a single-line fallback. Tests verify
+that chunking and fallback preserve the unchunked beamformer output. The
+publication archive exercised this fallback for the longitudinal carotid case
+and subsequently passed complete-image validation.

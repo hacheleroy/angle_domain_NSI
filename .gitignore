@@ -28,6 +28,7 @@ dist/
 
 # --- Virtual environments -----------------------------------------------------
 .venv/
+.status-venv/
 venv/
 env/
 

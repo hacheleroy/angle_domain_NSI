@@ -1,8 +1,11 @@
 # PMB major-revision handoff
 
-The repository contains the complete analysis program for the Physics in
-Medicine & Biology revision. The only deliberately outstanding operation is
-the full run on a CUDA-capable NVIDIA GPU.
+The repository contains the complete analysis program and immutable numerical
+record for the Physics in Medicine & Biology revision. The full publication
+run was completed on 17 September 2026 on the author's CUDA-capable NVIDIA
+GPU. The corrected CSV/JSON outputs and run/asset manifests are frozen under
+`results/reported/`; rerunning the workflow is optional reproducibility work,
+not a remaining publication step.
 
 ## 1. Install the environment
 
@@ -113,20 +116,21 @@ envelope; they should not replace gCNR in the main reviewer response.
 
 ## 5. Final manuscript checks
 
-After the generated assets replace the explicit draft placeholders in both
-Overleaf projects:
+The generated assets have been synchronized to both Overleaf projects. Before
+portal upload, retain the following final author-side checks:
 
 1. compile the clean journal manuscript, highlighted manuscript,
    supplementary material, response letter, and arXiv manuscript;
-2. confirm that no red `GPU RESULT PENDING` marker remains;
+2. confirm that no red `GPU RESULT PENDING` fallback marker is rendered;
 3. confirm that every number in the response letter is supplied by
    `revision_results.tex` rather than transcribed manually;
 4. inspect all tables and plots at final PDF scale;
-5. replace the provisional revised date and recalculate the manuscript and
-   abstract word counts after the generated values are inserted;
+5. recalculate the manuscript and abstract word counts after any final
+   shortening;
 6. run the journal revision-submission checklist before upload.
 
-Do not submit the current draft PDFs before the GPU run and final asset sync.
+The GPU run and final asset sync are complete. Regenerate the submission PDFs
+only if the manuscript text or metadata changes after this release.
 
 ## 6. IOP upload package
 
