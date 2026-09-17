@@ -585,7 +585,7 @@ def method_complexities() -> dict[str, dict[str, str]]:
 
     return {
         "DAS": {"order": "O(M)", "note": "receive-element sum"},
-        "Receive CF-DAS": {
+        "CF-DAS": {
             "order": "O(M)",
             "note": "DAS plus coherent and incoherent energy sums",
         },
@@ -593,7 +593,7 @@ def method_complexities() -> dict[str, dict[str, str]]:
             "order": "O((2K+1)(M-L+1)L^2 + L^3)",
             "note": "covariance construction plus dense linear solve",
         },
-        "F-DMAS": {
+        "DMAS": {
             "order": "O(M) exact / O(M^2) direct",
             "note": "exact pair-sum identity plus axial FIR/Hilbert filtering",
         },

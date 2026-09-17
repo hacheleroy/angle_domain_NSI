@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build manuscript-ready LaTeX tables, macros, and figures from revision runs.
+"""Materialize the frozen PMB-revision results as manuscript assets.
 
-The script deliberately refuses incomplete or short timing runs by default.  It
-is the single bridge between numerical outputs and the revised manuscript, so
-reported values do not need to be transcribed by hand.
+The script is the only bridge between numerical outputs and LaTeX. It checks
+that every publication analysis is complete, migrates the two legacy method
+labels used by early revision runs, writes tables/macros, and copies the five
+agreed main figures plus supplementary diagnostics.
 """
 
 from __future__ import annotations
@@ -13,42 +14,74 @@ import csv
 import json
 import math
 import shutil
+import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+import matplotlib
 
-METHODS = ("DAS", "Angular CF-DAS", "Receive-NSI", "Angle-NSI")
-CONVENTIONAL_METHODS = (
-    "DAS", "Receive CF-DAS", "MV", "F-DMAS", "Receive-NSI", "Angle-NSI"
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from method_names import (  # noqa: E402
+    ANGLE_NSI,
+    CF_DAS,
+    DAS,
+    DMAS,
+    METHODS,
+    MV,
+    RECEIVE_NSI,
+    canonical_method_name,
 )
+from simulation_robustness import (  # noqa: E402
+    plot_angle_sweeps,
+    plot_perturbations,
+    plot_spatial_psf,
+)
+
+
+NSI_METHODS = (DAS, RECEIVE_NSI, ANGLE_NSI)
 TIMING_METHODS = {
-    "DAS": "DAS / coherent compounding",
-    "Angular CF-DAS": "Angular CF-DAS",
-    "Receive-NSI": "Conventional NSI (two fields)",
-    "Angle-NSI": "Angular NSI (streaming)",
+    DAS: "DAS / coherent compounding",
+    RECEIVE_NSI: "Conventional NSI (two fields)",
+    ANGLE_NSI: "Angular NSI (streaming)",
 }
 EXPECTED_C_VALUES = {0.02, 0.05, 0.10, 0.20}
+CONVENTIONAL_BASELINE_SCHEMA_VERSION = 3
+PICMUS_FULL_PHANTOM_SCHEMA_VERSION = 3
+COLORS = {
+    DAS: "#6a3d9a",
+    CF_DAS: "#2ca02c",
+    MV: "#ff7f0e",
+    DMAS: "#8c564b",
+    RECEIVE_NSI: "#d62728",
+    ANGLE_NSI: "#1f77b4",
+}
 
 
 def parse_args() -> argparse.Namespace:
-    root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(
         description="Materialize PMB revision results as LaTeX assets"
     )
     parser.add_argument(
         "--results-root",
         type=Path,
-        default=root / "results" / "generated" / "revision",
+        default=ROOT / "results" / "generated" / "revision",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=root / "results" / "generated" / "revision" / "manuscript_assets",
+        default=ROOT / "results" / "generated" / "revision" / "manuscript_assets",
     )
     parser.add_argument(
         "--allow-incomplete",
         action="store_true",
-        help="Create a diagnostic asset set even when publication checks fail.",
+        help="Write diagnostic assets even when publication checks fail.",
     )
     return parser.parse_args()
 
@@ -56,8 +89,7 @@ def parse_args() -> argparse.Namespace:
 def read_json(path: Path) -> dict[str, Any]:
     if not path.is_file() or path.stat().st_size == 0:
         raise FileNotFoundError(f"Required result is missing: {path}")
-    with path.open(encoding="utf-8") as stream:
-        value = json.load(stream)
+    value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError(f"Expected a JSON object in {path}")
     return value
@@ -70,19 +102,37 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
+def read_typed_csv(path: Path) -> list[dict[str, Any]]:
+    """Read analysis CSV rows and restore simple scalar types for plotting."""
+
+    rows: list[dict[str, Any]] = []
+    for source in read_csv(path):
+        row: dict[str, Any] = {}
+        for key, value in source.items():
+            if value == "":
+                row[key] = None
+            elif value == "True":
+                row[key] = True
+            elif value == "False":
+                row[key] = False
+            elif value == "infinity":
+                row[key] = value
+            else:
+                try:
+                    row[key] = float(value)
+                except ValueError:
+                    row[key] = value
+        if "method" in row:
+            row["method"] = canonical_method_name(str(row["method"]))
+        rows.append(row)
+    return rows
+
+
 def finite(value: Any, label: str) -> float:
     number = float(value)
     if not math.isfinite(number):
         raise ValueError(f"Non-finite value for {label}: {value!r}")
     return number
-
-
-def first(rows: Iterable[dict[str, Any]], **criteria: Any) -> dict[str, Any]:
-    for row in rows:
-        if all(row.get(key) == value for key, value in criteria.items()):
-            return row
-    joined = ", ".join(f"{key}={value!r}" for key, value in criteria.items())
-    raise KeyError(f"No result row matched {joined}")
 
 
 def fmt(value: Any, digits: int = 3) -> str:
@@ -111,21 +161,25 @@ def copy_required(source: Path, destination: Path) -> None:
     shutil.copy2(source, destination)
 
 
-def method_label(method: str) -> str:
-    return {
-        "DAS": "DAS",
-        "Angular CF-DAS": "Angular CF-DAS",
-        "Receive CF-DAS": "Receive CF-DAS",
-        "MV": "MV",
-        "F-DMAS": "F-DMAS",
-        "Receive-NSI": "Receive-NSI",
-        "Angle-NSI": "Angle-NSI",
-    }[method]
+def first(rows: Iterable[dict[str, Any]], **criteria: Any) -> dict[str, Any]:
+    for row in rows:
+        if all(row.get(key) == value for key, value in criteria.items()):
+            return row
+    joined = ", ".join(f"{key}={value!r}" for key, value in criteria.items())
+    raise KeyError(f"No result row matched {joined}")
 
 
-def selected_c_values(
-    rows: Iterable[dict[str, Any]], method: str
-) -> set[float]:
+def canonical_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    output = []
+    for source in rows:
+        row = dict(source)
+        if "method" in row:
+            row["method"] = canonical_method_name(str(row["method"]))
+        output.append(row)
+    return output
+
+
+def selected_c_values(rows: Iterable[dict[str, Any]], method: str) -> set[float]:
     """Return finite c values for one method, rounded for JSON/CSV stability."""
 
     return {
@@ -135,537 +189,689 @@ def selected_c_values(
     }
 
 
+def latex_table(
+    column_spec: str,
+    headers: list[str],
+    rows: list[list[str]],
+) -> str:
+    lines = [
+        rf"\begin{{tabular}}{{@{{}}{column_spec}@{{}}}}",
+        r"\toprule",
+        " & ".join(headers) + r" \\",
+        r"\midrule",
+    ]
+    lines.extend(" & ".join(row) + r" \\" for row in rows)
+    lines.extend([r"\bottomrule", r"\end{tabular}"])
+    return "\n".join(lines)
+
+
+def timing_figure(
+    path: Path,
+    scaling_rows: list[dict[str, Any]],
+    kernel_rows: list[dict[str, Any]],
+) -> None:
+    figure, axes = plt.subplots(2, 2, figsize=(9.3, 7.0), dpi=180)
+    families = (
+        ("grid_pixels", "Image size [pixels]"),
+        ("receive_elements", "Receive elements"),
+        ("transmit_angles", "Plane waves"),
+    )
+    for axis, (family, xlabel) in zip(axes.flat[:3], families):
+        for method in NSI_METHODS:
+            timing_name = TIMING_METHODS[method]
+            rows = sorted(
+                (
+                    row
+                    for row in scaling_rows
+                    if row.get("family") == family
+                    and row.get("method") == timing_name
+                ),
+                key=lambda row: finite(
+                    row["family_value"], "timing family value"
+                ),
+            )
+            axis.plot(
+                [finite(row["family_value"], "timing x") for row in rows],
+                [finite(row["median_ms"], "timing median") for row in rows],
+                marker="o",
+                linewidth=1.4,
+                color=COLORS[method],
+                label=method,
+            )
+        axis.set_xlabel(xlabel)
+        axis.set_ylabel("End-to-end time [ms]")
+        axis.grid(alpha=0.25)
+    axes[0, 0].legend(frameon=False, fontsize=8)
+
+    kernel_by_method = {row["method"]: row for row in kernel_rows}
+    medians = [
+        finite(kernel_by_method[method]["median_ms"], method)
+        for method in METHODS
+    ]
+    axes[1, 1].bar(
+        np.arange(len(METHODS)),
+        medians,
+        color=[COLORS[method] for method in METHODS],
+    )
+    axes[1, 1].set_yscale("log")
+    axes[1, 1].set_xticks(
+        np.arange(len(METHODS)), METHODS, rotation=35, ha="right"
+    )
+    axes[1, 1].set_ylabel("Post-delay kernel time [ms]")
+    axes[1, 1].grid(axis="y", alpha=0.25, which="both")
+    for label, axis in zip("abcd", axes.flat):
+        axis.text(
+            0.02,
+            0.96,
+            f"({label})",
+            transform=axis.transAxes,
+            ha="left",
+            va="top",
+            fontweight="bold",
+        )
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(figure)
+
+
 def main() -> None:
     args = parse_args()
-    root = Path(__file__).resolve().parents[1]
     results = args.results_root.expanduser().resolve()
     output = args.output_dir.expanduser().resolve()
 
-    point = read_json(results / "point_target" / "simulation_psf_fwhm_summary.json")
-    doppler_rows = read_csv(results / "doppler" / "mbtrace_four_method_comparison.csv")
+    simulation = read_json(
+        results
+        / "simulation_six_method"
+        / "simulation_six_method_summary.json"
+    )
+    full_phantom = read_json(
+        results / "picmus_full_phantom" / "picmus_full_phantom_summary.json"
+    )
+    doppler_rows = canonical_rows(
+        read_csv(results / "doppler" / "mbtrace_three_method_comparison.csv")
+    )
     displacement_rows = read_csv(
         results / "doppler" / "microbubble_peak_concordance_displacements.csv"
     )
     doppler_c = read_json(results / "doppler" / "mbtrace_c_sensitivity.json")
     bmode = read_json(results / "bmode" / "bmode_nsi_results.json")
     experimental = read_json(
-        results / "experimental_psf" / "picmus_experimental_psf_summary.json"
+        results
+        / "experimental_psf"
+        / "picmus_experimental_psf_summary.json"
     )
     timing = read_json(
         results / "timing_scaling" / "nsi_timing_scaling_summary.json"
     )
     conventional = read_json(
-        results / "conventional_baselines" / "conventional_baseline_summary.json"
+        results
+        / "conventional_baselines"
+        / "conventional_baseline_summary.json"
     )
     conventional_timing = read_json(
-        results / "conventional_timing" / "conventional_timing_summary.json"
+        results
+        / "conventional_timing"
+        / "conventional_timing_summary.json"
+    )
+    robustness_root = results / "robustness"
+    if not (robustness_root / "robustness_angle_sweeps.csv").is_file():
+        robustness_root = ROOT / "results" / "reported" / "robustness"
+    robustness_angle_rows = read_typed_csv(
+        robustness_root / "robustness_angle_sweeps.csv"
+    )
+    robustness_perturbation_rows = read_typed_csv(
+        robustness_root / "robustness_noise_phase_sweeps.csv"
+    )
+    robustness_spatial_rows = read_typed_csv(
+        robustness_root / "robustness_spatial_psf.csv"
+    )
+
+    simulation_rows = canonical_rows(simulation.get("metrics", []))
+    conventional_psf_rows = canonical_rows(
+        conventional.get("experimental_psf", {}).get("metrics", [])
+    )
+    conventional_views = []
+    for source in conventional.get("carotid_views", []):
+        view = dict(source)
+        view["metrics"] = canonical_rows(source.get("metrics", []))
+        conventional_views.append(view)
+    conventional_timing_rows = canonical_rows(
+        conventional_timing.get("rows", [])
+    )
+    profile_rows = canonical_rows(
+        full_phantom.get("profile_diagnostics", [])
     )
 
     problems: list[str] = []
-    point_rows = point.get("final_results", [])
-    if {row.get("method") for row in point_rows} != set(METHODS):
-        problems.append("point-target output does not contain exactly four methods")
-    point_c_rows = point.get("c_sensitivity_results", [])
-    for method in ("Receive-NSI", "Angle-NSI"):
-        if selected_c_values(point_c_rows, method) != EXPECTED_C_VALUES:
-            problems.append(
-                f"point-target c sweep is incomplete for {method}"
-            )
-    if experimental.get("metadata_only") is not False:
-        problems.append("experimental PSF output is metadata-only")
-    experimental_summaries = experimental.get("summaries", {})
-    for method in METHODS:
-        if int(experimental_summaries.get("all", {}).get(method, {}).get(
-            "lateral_width_mm", {}
-        ).get("n", 0)) != 7:
-            problems.append(
-                f"experimental PSF output does not contain seven widths for {method}"
-            )
-        if int(experimental_summaries.get("on-axis", {}).get(method, {}).get(
-            "lateral_width_mm", {}
-        ).get("n", 0)) != 5:
-            problems.append(
-                f"experimental PSF on-axis summary does not contain five widths for {method}"
-            )
-        if int(experimental_summaries.get("37.5-mm depth", {}).get(
-            method, {}
-        ).get("lateral_width_mm", {}).get("n", 0)) != 3:
-            problems.append(
-                f"experimental PSF co-depth summary does not contain three widths for {method}"
-            )
-    experimental_c_values = {
-        round(finite(value, "experimental PSF c value"), 8)
-        for value in experimental.get("reconstruction", {}).get("c_values", [])
+    expected = set(METHODS)
+    if (
+        simulation.get("metadata_only") is not False
+        or simulation.get("publication_ready") is not True
+    ):
+        problems.append("six-method simulation is not publication-ready")
+    if {row.get("method") for row in simulation_rows} != expected:
+        problems.append("six-method simulation is incomplete")
+    if (
+        int(full_phantom.get("schema_version", 0))
+        != PICMUS_FULL_PHANTOM_SCHEMA_VERSION
+        or full_phantom.get("metadata_only") is not False
+        or full_phantom.get("publication_ready") is not True
+    ):
+        problems.append("full PICMUS phantom comparison is not publication-ready")
+    if set(full_phantom.get("methods", [])) != expected:
+        problems.append("full PICMUS phantom comparison is incomplete")
+    expected_profile_pairs = {
+        (target_id, method)
+        for target_id in range(1, 8)
+        for method in NSI_METHODS
     }
-    if experimental_c_values != EXPECTED_C_VALUES:
-        problems.append("experimental PSF c sweep is incomplete")
-    for method in ("Receive-NSI", "Angle-NSI"):
-        if selected_c_values(doppler_c.get("rows", []), method) != EXPECTED_C_VALUES:
-            problems.append(f"MBTrace c sweep is incomplete for {method}")
-        if selected_c_values(bmode.get("c_sensitivity", []), method) != EXPECTED_C_VALUES:
-            problems.append(f"carotid c sweep is incomplete for {method}")
-    if timing.get("failed_cases"):
-        problems.append("one or more timing-scaling cases failed")
-    if timing.get("quick_engineering_run"):
-        problems.append("timing suite was run with --quick")
-    if int(timing.get("requested_warmups", 0)) < 10:
-        problems.append("timing suite used fewer than 10 warm-ups")
-    if int(timing.get("requested_repetitions", 0)) < 50:
-        problems.append("timing suite used fewer than 50 repetitions")
-    if any(int(row.get("n", 0)) < 50 for row in timing.get("rows", [])):
-        problems.append("one or more timing rows contains fewer than 50 samples")
-    primary_cases = {
-        row.get("run_id") for row in timing.get("rows", [])
-        if row.get("family") in {
-            "grid_pixels", "receive_elements", "transmit_angles"
-        }
+    observed_profile_pairs = {
+        (int(row.get("target_id", -1)), row.get("method"))
+        for row in profile_rows
     }
-    required_cases = {
-        "grid_64x128", "grid_128x256", "grid_256x512",
-        "elements_64", "elements_128", "elements_256",
-        "angles_9", "angles_17", "angles_33", "angles_75",
-    }
-    if primary_cases != required_cases:
-        problems.append("timing suite is missing one or more primary scaling cases")
-    required_timing_methods = set(TIMING_METHODS.values())
-    for run_id in sorted(required_cases):
-        case_methods = {
-            row.get("method") for row in timing.get("rows", [])
-            if row.get("run_id") == run_id
+    if observed_profile_pairs != expected_profile_pairs:
+        problems.append("full-phantom target-wise profile audit is incomplete")
+    if any(
+        "central_notch_depth_db" not in row
+        or "central_notch_detected" not in row
+        for row in profile_rows
+    ):
+        problems.append("full-phantom central-notch diagnostic is stale")
+    if {row.get("method") for row in doppler_rows} != set(NSI_METHODS):
+        problems.append(
+            "MBTrace comparison does not contain DAS and both NSI methods"
+        )
+    if (
+        int(conventional.get("schema_version", 0))
+        != CONVENTIONAL_BASELINE_SCHEMA_VERSION
+        or conventional.get("metadata_only") is not False
+        or conventional.get("publication_ready") is not True
+    ):
+        problems.append("conventional comparison is not publication-ready")
+    if {row.get("method") for row in conventional_psf_rows} != expected:
+        problems.append("conventional point-target comparison is incomplete")
+    view_methods = {
+        view.get("view"): {
+            row.get("method") for row in view.get("metrics", [])
         }
-        if case_methods != required_timing_methods:
-            problems.append(
-                f"timing suite primary case {run_id} does not contain all four methods"
-            )
-    for control_id in ("baseline_preloaded", "baseline_host_stacked"):
-        control_methods = {
-            row.get("method") for row in timing.get("rows", [])
-            if row.get("run_id") == control_id
-        }
-        if control_methods != required_timing_methods:
-            problems.append(
-                f"timing suite control {control_id} does not contain all four methods"
-            )
-    expected_conventional = set(CONVENTIONAL_METHODS)
-    if conventional.get("metadata_only") is not False:
-        problems.append("conventional-baseline output is metadata-only")
-    if conventional.get("quick_engineering_run"):
-        problems.append("conventional-baseline comparison was run with --quick")
-    if conventional.get("publication_ready") is not True:
-        problems.append("conventional-baseline comparison is not publication-ready")
-    if set(conventional.get("methods", [])) != expected_conventional:
-        problems.append("conventional-baseline comparison is missing one or more methods")
-    conventional_psf_rows = conventional.get("experimental_psf", {}).get(
-        "metrics", []
-    )
-    if {row.get("method") for row in conventional_psf_rows} != expected_conventional:
-        problems.append("conventional experimental PSF comparison is incomplete")
-    conventional_views = conventional.get("carotid_views", [])
-    conventional_view_methods = {
-        view.get("view"): {row.get("method") for row in view.get("metrics", [])}
         for view in conventional_views
     }
-    if set(conventional_view_methods) != {"CC", "CL"} or any(
-        methods != expected_conventional
-        for methods in conventional_view_methods.values()
+    if set(view_methods) != {"CC", "CL"} or any(
+        value != expected for value in view_methods.values()
     ):
-        problems.append("conventional carotid comparison is incomplete")
-    if conventional_timing.get("quick_engineering_run"):
-        problems.append("conventional timing was run with --quick")
+        problems.append("six-method carotid comparison is incomplete")
     if conventional_timing.get("publication_ready") is not True:
-        problems.append("conventional timing is not publication-ready")
-    if int(conventional_timing.get("requested_warmups", 0)) < 10:
-        problems.append("conventional timing used fewer than 10 warm-ups")
-    if int(conventional_timing.get("requested_repetitions", 0)) < 50:
-        problems.append("conventional timing used fewer than 50 repetitions")
-    conventional_timing_rows = conventional_timing.get("rows", [])
-    if {row.get("method") for row in conventional_timing_rows} != expected_conventional:
-        problems.append("conventional timing is missing one or more methods")
-    if any(int(row.get("n", 0)) < 50 for row in conventional_timing_rows):
-        problems.append("one or more conventional timing rows has fewer than 50 samples")
+        problems.append("six-method kernel timing is not publication-ready")
+    if {row.get("method") for row in conventional_timing_rows} != expected:
+        problems.append("six-method kernel timing is incomplete")
+    if int(conventional_timing.get("requested_warmups", 0)) < 10 or int(
+        conventional_timing.get("requested_repetitions", 0)
+    ) < 50:
+        problems.append("six-method kernel timing is too short")
+    if timing.get("failed_cases") or timing.get("quick_engineering_run"):
+        problems.append("end-to-end timing suite is incomplete")
+    if int(timing.get("requested_warmups", 0)) < 10 or int(
+        timing.get("requested_repetitions", 0)
+    ) < 50:
+        problems.append("end-to-end timing suite is too short")
+    for method in (RECEIVE_NSI, ANGLE_NSI):
+        if (
+            selected_c_values(doppler_c.get("rows", []), method)
+            != EXPECTED_C_VALUES
+        ):
+            problems.append(f"MBTrace c sweep is incomplete for {method}")
+        if (
+            selected_c_values(bmode.get("c_sensitivity", []), method)
+            != EXPECTED_C_VALUES
+        ):
+            problems.append(f"carotid c sweep is incomplete for {method}")
+    if experimental.get("metadata_only") is not False:
+        problems.append("experimental point-target output is metadata-only")
+
     if problems and not args.allow_incomplete:
         raise SystemExit(
-            "Revision assets were not materialized:\n- " + "\n- ".join(problems)
+            "Revision assets were not materialized:\n- "
+            + "\n- ".join(problems)
         )
 
-    point_by_method = {row["method"]: row for row in point_rows}
+    simulation_by_method = {row["method"]: row for row in simulation_rows}
     doppler_by_method = {row["method"]: row for row in doppler_rows}
-    bmode_by_view = {
-        view["view"]: {row["method"]: row for row in view["metrics"]}
-        for view in bmode.get("views", [])
-    }
-    baseline_rows = [
-        row for row in timing.get("rows", []) if row.get("run_id") == "grid_128x256"
-    ]
-    timing_by_method = {row["method"]: row for row in baseline_rows}
-    conventional_psf_by_method = {
-        row["method"]: row for row in conventional_psf_rows
-    }
-    conventional_by_view = {
+    psf_by_method = {row["method"]: row for row in conventional_psf_rows}
+    carotid_by_view = {
         view["view"]: {row["method"]: row for row in view["metrics"]}
         for view in conventional_views
     }
-    conventional_timing_by_method = {
+    kernel_by_method = {
         row["method"]: row for row in conventional_timing_rows
     }
+    reference_timing_rows = [
+        row
+        for row in timing.get("rows", [])
+        if row.get("run_id") == "grid_128x256"
+    ]
+    end_to_end_by_method = {
+        method: first(reference_timing_rows, method=timing_name)
+        for method, timing_name in TIMING_METHODS.items()
+    }
 
-    for method in METHODS:
-        if method not in point_by_method:
-            raise KeyError(f"Missing point-target row for {method}")
-        if method not in doppler_by_method:
-            raise KeyError(f"Missing MBTrace row for {method}")
-        if TIMING_METHODS[method] not in timing_by_method:
-            raise KeyError(f"Missing baseline timing row for {method}")
-        for view in ("CC", "CL"):
-            if method not in bmode_by_view.get(view, {}):
-                raise KeyError(f"Missing {view} carotid row for {method}")
-    for method in CONVENTIONAL_METHODS:
-        if method not in conventional_psf_by_method:
-            raise KeyError(f"Missing conventional PSF row for {method}")
-        if method not in conventional_timing_by_method:
-            raise KeyError(f"Missing conventional timing row for {method}")
-        for view in ("CC", "CL"):
-            if method not in conventional_by_view.get(view, {}):
-                raise KeyError(f"Missing conventional {view} row for {method}")
-
-    das_width = finite(point_by_method["DAS"]["lateral_fwhm_mm"], "DAS width")
-    receive_width = finite(
-        point_by_method["Receive-NSI"]["lateral_fwhm_mm"], "Receive-NSI width"
-    )
-    angle_width = finite(
-        point_by_method["Angle-NSI"]["lateral_fwhm_mm"], "Angle-NSI width"
-    )
-    receive_timing = finite(
-        timing_by_method[TIMING_METHODS["Receive-NSI"]]["median_ms"],
-        "Receive-NSI timing",
-    )
-    angle_timing = finite(
-        timing_by_method[TIMING_METHODS["Angle-NSI"]]["median_ms"],
-        "Angle-NSI timing",
-    )
-    signed_angle_advantage_percent = 100.0 * (
-        receive_timing - angle_timing
-    ) / receive_timing
-    angle_receive_comparison = (
-        f"{abs(signed_angle_advantage_percent):.1f}\\% "
-        + ("lower" if signed_angle_advantage_percent >= 0.0 else "higher")
-    )
-    experimental_summaries = experimental["summaries"]
-
+    macro_stems = {
+        DAS: "Das",
+        CF_DAS: "Cf",
+        MV: "Mv",
+        DMAS: "Dmas",
+        RECEIVE_NSI: "ReceiveNsi",
+        ANGLE_NSI: "AngleNsi",
+    }
     macros = [
         "% Generated by scripts/materialize_revision_assets.py; do not edit.",
         tex_macro("RevisionAnalysisStatus", "complete"),
-        tex_macro("PointDasWidth", fmt(das_width)),
-        tex_macro("PointCfWidth", fmt(point_by_method["Angular CF-DAS"]["lateral_fwhm_mm"])),
-        tex_macro("PointReceiveWidth", fmt(receive_width, 4)),
-        tex_macro("PointAngleWidth", fmt(angle_width)),
-        tex_macro("PointAngleDasReduction", fmt(100.0 * (1.0 - angle_width / das_width), 1)),
-        tex_macro("PointAngleReceiveRatio", fmt(angle_width / receive_width, 1)),
-        tex_macro("TimingDasMedian", fmt(timing_by_method[TIMING_METHODS["DAS"]]["median_ms"], 2)),
-        tex_macro("TimingCfMedian", fmt(timing_by_method[TIMING_METHODS["Angular CF-DAS"]]["median_ms"], 2)),
-        tex_macro("TimingReceiveMedian", fmt(receive_timing, 2)),
-        tex_macro("TimingAngleMedian", fmt(angle_timing, 2)),
-        tex_macro("TimingAngleLowerLatency", fmt(signed_angle_advantage_percent, 1)),
-        tex_macro("TimingAngleReceiveComparison", angle_receive_comparison),
-        tex_macro("TimingAngleDasOverhead", fmt(100.0 * (angle_timing / finite(timing_by_method[TIMING_METHODS['DAS']]['median_ms'], 'DAS timing') - 1.0), 1)),
-        tex_macro("MbtraceAngleMatch", pct(doppler_by_method["Angle-NSI"]["das_concordant_fraction_at_0p15_mm"])),
-        tex_macro("MbtraceReceiveMatch", pct(doppler_by_method["Receive-NSI"]["das_concordant_fraction_at_0p15_mm"])),
-        tex_macro("MbtraceCfMatch", pct(doppler_by_method["Angular CF-DAS"]["das_concordant_fraction_at_0p15_mm"])),
-        tex_macro("MbtraceAngleWidth", fmt(doppler_by_method["Angle-NSI"]["mean_matched_width_mm"])),
-        tex_macro("MbtraceReceiveWidth", fmt(doppler_by_method["Receive-NSI"]["mean_matched_width_mm"])),
-        tex_macro("MbtraceCfWidth", fmt(doppler_by_method["Angular CF-DAS"]["mean_matched_width_mm"])),
-        tex_macro("ExpPsfDasOnAxisWidth", fmt(experimental_summaries["on-axis"]["DAS"]["lateral_width_mm"]["mean"])),
-        tex_macro("ExpPsfCfOnAxisWidth", fmt(experimental_summaries["on-axis"]["Angular CF-DAS"]["lateral_width_mm"]["mean"])),
-        tex_macro("ExpPsfReceiveOnAxisWidth", fmt(experimental_summaries["on-axis"]["Receive-NSI"]["lateral_width_mm"]["mean"])),
-        tex_macro("ExpPsfAngleOnAxisWidth", fmt(experimental_summaries["on-axis"]["Angle-NSI"]["lateral_width_mm"]["mean"])),
-        tex_macro("CarotidCcCfGcnr", fmt(bmode_by_view["CC"]["Angular CF-DAS"]["gcnr"])),
-        tex_macro("CarotidClCfGcnr", fmt(bmode_by_view["CL"]["Angular CF-DAS"]["gcnr"])),
-        tex_macro("TimingDasTransferMib", fmt(finite(timing_by_method[TIMING_METHODS["DAS"]]["timed_total_transfer_bytes"], "DAS bytes") / 2**20, 2)),
-        tex_macro("TimingReceiveTransferMib", fmt(finite(timing_by_method[TIMING_METHODS["Receive-NSI"]]["timed_total_transfer_bytes"], "Receive bytes") / 2**20, 2)),
-        tex_macro("TimingAngleTransferMib", fmt(finite(timing_by_method[TIMING_METHODS["Angle-NSI"]]["timed_total_transfer_bytes"], "Angle bytes") / 2**20, 2)),
     ]
-    conventional_macro_stems = {
-        "DAS": "ConventionalDas",
-        "Receive CF-DAS": "ConventionalCf",
-        "MV": "ConventionalMv",
-        "F-DMAS": "ConventionalFdmas",
-        "Receive-NSI": "ConventionalReceiveNsi",
-        "Angle-NSI": "ConventionalAngleNsi",
-    }
-    for method in CONVENTIONAL_METHODS:
-        stem = conventional_macro_stems[method]
+    for method in METHODS:
+        stem = macro_stems[method]
         macros.extend(
             [
                 tex_macro(
-                    f"{stem}PsfWidth",
-                    fmt(conventional_psf_by_method[method]["lateral_width_mm"], 4),
+                    f"Simulation{stem}Width",
+                    fmt(simulation_by_method[method]["lateral_width_mm"], 4),
                 ),
                 tex_macro(
-                    f"{stem}CcGcnr",
-                    fmt(conventional_by_view["CC"][method]["gcnr"]),
+                    f"Experimental{stem}Width",
+                    fmt(psf_by_method[method]["lateral_width_mm"], 4),
                 ),
                 tex_macro(
-                    f"{stem}ClGcnr",
-                    fmt(conventional_by_view["CL"][method]["gcnr"]),
+                    f"CarotidCc{stem}Gcnr",
+                    fmt(carotid_by_view["CC"][method]["gcnr"]),
                 ),
                 tex_macro(
-                    f"{stem}KernelTime",
-                    fmt(conventional_timing_by_method[method]["median_ms"], 3),
+                    f"CarotidCl{stem}Gcnr",
+                    fmt(carotid_by_view["CL"][method]["gcnr"]),
+                ),
+                tex_macro(
+                    f"Kernel{stem}Time",
+                    fmt(kernel_by_method[method]["median_ms"], 3),
                 ),
             ]
         )
+    for method in NSI_METHODS:
+        stem = macro_stems[method]
+        macros.extend(
+            [
+                tex_macro(
+                    f"EndToEnd{stem}Time",
+                    fmt(end_to_end_by_method[method]["median_ms"], 2),
+                ),
+                tex_macro(
+                    f"Mbtrace{stem}Width",
+                    fmt(doppler_by_method[method]["mean_matched_width_mm"]),
+                ),
+                tex_macro(
+                    f"Mbtrace{stem}Match",
+                    pct(
+                        doppler_by_method[method][
+                            "das_concordant_fraction_at_0p15_mm"
+                        ]
+                    ),
+                ),
+            ]
+        )
+    for method in (RECEIVE_NSI, ANGLE_NSI):
+        notch_count = sum(
+            bool(row.get("central_notch_detected"))
+            for row in profile_rows
+            if row.get("method") == method
+        )
+        macros.append(
+            tex_macro(
+                f"Picmus{macro_stems[method]}NotchCount", str(notch_count)
+            )
+        )
     write_text(output / "revision_results.tex", "\n".join(macros))
 
-    tradeoff_lines = [
-        r"\begin{tabular}{@{}lrrrr@{}}",
-        r"\toprule",
-        r"Method & Point width & MBTrace width & DAS concordance & Baseline time \\",
-        r" & (mm) & (mm) & (\%) & (ms) \\",
-        r"\midrule",
-    ]
+    simulation_table = []
     for method in METHODS:
-        p = point_by_method[method]
-        d = doppler_by_method[method]
-        t = timing_by_method[TIMING_METHODS[method]]
-        match = 1.0 if method == "DAS" else finite(
-            d["das_concordant_fraction_at_0p15_mm"], f"{method} concordance"
+        row = simulation_by_method[method]
+        simulation_table.append(
+            [
+                method,
+                fmt(row["lateral_width_mm"], 4),
+                fmt(row["axial_width_mm"], 4),
+                fmt(row["peak_to_median_background_db"], 1),
+                fmt(row["center_to_profile_peak_db"], 1),
+            ]
         )
-        tradeoff_lines.append(
-            f"{method_label(method)} & {fmt(p['lateral_fwhm_mm'], 4)} & "
-            f"{fmt(d['mean_matched_width_mm'])} & {100.0 * match:.1f} & "
-            f"{fmt(t['median_ms'], 2)} \\\\"
-        )
-    tradeoff_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_method_tradeoff.tex", "\n".join(tradeoff_lines))
+    write_text(
+        output / "table_simulation_metrics.tex",
+        latex_table(
+            "lrrrr",
+            [
+                "Method",
+                "Lateral width (mm)",
+                "Axial width (mm)",
+                "Peak/background (dB)",
+                "Centre/peak (dB)",
+            ],
+            simulation_table,
+        ),
+    )
 
-    exp_lines = [
-        r"\begin{tabular}{@{}lrrrr@{}}",
-        r"\toprule",
-        r"Method & On-axis width & At 37.5 mm & Axial width & Localization error \\",
-        r" & (mm) & (mm) & (mm) & (mm) \\",
-        r"\midrule",
-    ]
+    conventional_table = []
     for method in METHODS:
-        summaries = experimental["summaries"]
-        exp_lines.append(
-            f"{method_label(method)} & "
-            f"{fmt(summaries['on-axis'][method]['lateral_width_mm']['mean'])} & "
-            f"{fmt(summaries['37.5-mm depth'][method]['lateral_width_mm']['mean'])} & "
-            f"{fmt(summaries['all'][method]['axial_width_mm']['mean'])} & "
-            f"{fmt(summaries['all'][method]['localization_error_mm']['mean'])} \\\\"
+        conventional_table.append(
+            [
+                method,
+                fmt(psf_by_method[method]["lateral_width_mm"], 4),
+                fmt(psf_by_method[method]["peak_to_median_background_db"], 1),
+                fmt(carotid_by_view["CC"][method]["gcnr"]),
+                fmt(carotid_by_view["CL"][method]["gcnr"]),
+                fmt(kernel_by_method[method]["median_ms"], 3),
+            ]
         )
-    exp_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_experimental_psf.tex", "\n".join(exp_lines))
-
-    carotid_lines = [
-        r"\begin{tabular}{@{}llrrrr@{}}",
-        r"\toprule",
-        r"Metric & View & DAS & Angular CF-DAS & Receive-NSI & Angle-NSI \\",
-        r"\midrule",
-    ]
-    for metric, label, digits in (
-        ("contrast_ratio_db", "CR (dB)", 2),
-        ("cnr", "CNR", 3),
-        ("gcnr", "gCNR", 3),
-    ):
-        for index, view in enumerate(("CC", "CL")):
-            label_cell = label if index == 0 else ""
-            values = " & ".join(
-                fmt(bmode_by_view[view][method][metric], digits) for method in METHODS
-            )
-            carotid_lines.append(f"{label_cell} & {view} & {values} \\\\ ")
-    carotid_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_carotid_metrics.tex", "\n".join(carotid_lines))
-
-    timing_lines = [
-        r"\begin{tabular}{@{}lrrrr@{}}",
-        r"\toprule",
-        r"Method & Median & 95\% CI & Relative to DAS & Timed transfer \\",
-        r" & (ms) & (ms) & (ratio) & (MiB) \\",
-        r"\midrule",
-    ]
-    for method in METHODS:
-        row = timing_by_method[TIMING_METHODS[method]]
-        bytes_value = finite(row["timed_total_transfer_bytes"], f"{method} bytes")
-        timing_lines.append(
-            f"{method_label(method)} & {fmt(row['median_ms'], 2)} & "
-            f"[{fmt(row['median_95ci_lower_ms'], 2)}, {fmt(row['median_95ci_upper_ms'], 2)}] & "
-            f"{fmt(row['ratio_to_das_median'], 3)} & {bytes_value / 2**20:.2f} \\\\"
-        )
-    timing_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_timing_baseline.tex", "\n".join(timing_lines))
-
-    conventional_lines = [
-        r"\begin{tabular}{@{}lrrrrr@{}}",
-        r"\toprule",
-        r"Method & Lateral width & Peak/background & CC gCNR & CL gCNR & Kernel time \\",
-        r" & (mm) & (dB) & & & (ms) \\",
-        r"\midrule",
-    ]
-    for method in CONVENTIONAL_METHODS:
-        psf_row = conventional_psf_by_method[method]
-        conventional_lines.append(
-            f"{method_label(method)} & {fmt(psf_row['lateral_width_mm'], 4)} & "
-            f"{fmt(psf_row['peak_to_median_background_db'], 2)} & "
-            f"{fmt(conventional_by_view['CC'][method]['gcnr'])} & "
-            f"{fmt(conventional_by_view['CL'][method]['gcnr'])} & "
-            f"{fmt(conventional_timing_by_method[method]['median_ms'], 3)} \\\\"
-        )
-    conventional_lines.extend([r"\bottomrule", r"\end{tabular}"])
     write_text(
         output / "table_conventional_baselines.tex",
-        "\n".join(conventional_lines),
+        latex_table(
+            "lrrrrr",
+            [
+                "Method",
+                "Width (mm)",
+                "Peak/background (dB)",
+                "CC gCNR",
+                "CL gCNR",
+                "Kernel (ms)",
+            ],
+            conventional_table,
+        ),
     )
 
-    complexity_labels = {
-        "DAS": r"$O(M)$",
-        "Receive CF-DAS": r"$O(M)$",
-        "MV": r"$O((2K+1)(M-L+1)L^2+L^3)$",
-        "F-DMAS": r"$O(M^2)$ direct; $O(M)$ exact identity",
-        "Receive-NSI": r"$O(M)$",
-        "Angle-NSI": r"$O(M)$",
+    complexity = {
+        DAS: r"$O(M)$",
+        CF_DAS: r"$O(M)$",
+        MV: r"$O((2K+1)(M-L+1)L^2+L^3)$",
+        DMAS: r"$O(M^2)$ direct; $O(M)$ exact identity",
+        RECEIVE_NSI: r"$O(M)$",
+        ANGLE_NSI: r"$O(M)$",
     }
-    conventional_das_time = finite(
-        conventional_timing_by_method["DAS"]["median_ms"],
-        "conventional DAS timing",
+    das_kernel = finite(
+        kernel_by_method[DAS]["median_ms"], "DAS kernel time"
     )
-    conventional_timing_lines = [
-        r"\begin{tabular}{@{}lrrl@{}}",
-        r"\toprule",
-        r"Method & Median (ms) & Relative to DAS & Leading order per pixel/angle \\",
-        r"\midrule",
+    timing_table = [
+        [
+            method,
+            fmt(kernel_by_method[method]["median_ms"], 3),
+            fmt(
+                finite(kernel_by_method[method]["median_ms"], method)
+                / das_kernel,
+                2,
+            ),
+            complexity[method],
+        ]
+        for method in METHODS
     ]
-    for method in CONVENTIONAL_METHODS:
-        median = finite(
-            conventional_timing_by_method[method]["median_ms"],
-            f"{method} conventional timing",
-        )
-        conventional_timing_lines.append(
-            f"{method_label(method)} & {median:.3f} & "
-            f"{median / conventional_das_time:.2f} & {complexity_labels[method]} \\\\"
-        )
-    conventional_timing_lines.extend([r"\bottomrule", r"\end{tabular}"])
     write_text(
         output / "table_conventional_timing.tex",
-        "\n".join(conventional_timing_lines),
+        latex_table(
+            "lrrl",
+            [
+                "Method",
+                "Median (ms)",
+                "Relative to DAS",
+                "Leading order per pixel/angle",
+            ],
+            timing_table,
+        ),
     )
 
-    mv_view_windows = {
+    mv_windows = {
         view["view"]: int(view["mv_temporal_half_window_samples"])
         for view in conventional_views
     }
-    parameter_lines = [
-        r"\begin{tabular}{@{}lp{0.74\linewidth}@{}}",
-        r"\toprule",
-        r"Method & Fixed implementation choices \\",
-        r"\midrule",
-        r"Receive CF-DAS & Receive-aperture CF per transmit angle; no fitted parameter. \\",
-        (
-            r"MV & $L=\lfloor M_{\mathrm{active}}/2\rfloor$; all overlapping "
-            r"subarrays; loading $\mathrm{tr}(R)/(100L)$; $K=0$ for the point "
-            f"target and axial half-windows $K={mv_view_windows['CC']}$ (CC), "
-            f"$K={mv_view_windows['CL']}$ (CL). \\\\"
-        ),
-        (
-            r"F-DMAS & Signed square-root products for every $i<j$ pair; Kaiser FIR "
-            r"edges $(1.5,1.75,2.5,2.75)f_0$; analytic signal after filtering. \\"
-        ),
-        r"\bottomrule",
-        r"\end{tabular}",
+    parameter_rows = [
+        [
+            CF_DAS,
+            "Receive-aperture CF per transmit angle; no fitted parameter.",
+        ],
+        [
+            MV,
+            (
+                r"$L=\lfloor M_{\mathrm{active}}/2\rfloor$; all overlapping "
+                r"subarrays; loading $\mathrm{tr}(R)/(100L)$; $K=0$ for "
+                f"point targets and $K={mv_windows['CC']}$ (CC), "
+                f"$K={mv_windows['CL']}$ (CL)."
+            ),
+        ],
+        [
+            DMAS,
+            (
+                r"Signed square-root products for $i<j$; fixed Kaiser "
+                r"band-pass around $2f_0$; analytic envelope."
+            ),
+        ],
     ]
     write_text(
         output / "table_conventional_parameters.tex",
-        "\n".join(parameter_lines),
+        latex_table(
+            r"lp{0.72\linewidth}",
+            ["Method", "Fixed implementation choices"],
+            parameter_rows,
+        ),
     )
 
-    c_lines = [
-        r"\begin{tabular}{@{}lrrrr@{}}",
-        r"\toprule",
-        r"Method & $c$ & Detected peaks & Match at 0.15 mm & Match at 0.35 mm \\",
-        r"\midrule",
-    ]
-    for row in doppler_c.get("rows", []):
-        c_lines.append(
-            f"{method_label(row['method'])} & {fmt(row['c'], 2)} & "
-            f"{int(row['detected_peak_count'])} & "
-            f"{pct(row['matched_fraction_at_0p15_mm'])}\\% & "
-            f"{pct(row['matched_fraction_at_0p35_mm'])}\\% \\\\"
+    diagnostic_table = []
+    for row in profile_rows:
+        diagnostic_table.append(
+            [
+                str(int(row["target_id"])),
+                row["method"],
+                fmt(row["target_x_mm"], 1),
+                fmt(row["target_z_mm"], 1),
+                fmt(row["center_to_local_peak_db"], 1),
+                fmt(row["central_notch_depth_db"], 1),
+                "yes" if row.get("central_notch_detected") else "no",
+            ]
         )
-    c_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_mbtrace_c_sensitivity.tex", "\n".join(c_lines))
+    write_text(
+        output / "table_picmus_center_diagnostic.tex",
+        latex_table(
+            "rlrrrrr",
+            [
+                "Target",
+                "Method",
+                "$x$ (mm)",
+                "$z$ (mm)",
+                "Centre/peak (dB)",
+                "Notch depth (dB)",
+                "Notch",
+            ],
+            diagnostic_table,
+        ),
+    )
 
-    displacement_lines = [
-        r"\begin{tabular}{@{}lrrrrl@{}}",
-        r"\toprule",
-        r"Method & DAS peak & Assigned peak & Signed shift & Absolute shift & Classification \\",
-        r" & (mm) & (mm) & (mm) & (mm) & \\",
-        r"\midrule",
+    c_table = [
+        [
+            row["method"],
+            fmt(row["c"], 2),
+            str(int(row["detected_peak_count"])),
+            pct(row["matched_fraction_at_0p15_mm"]) + r"\%",
+            pct(row["matched_fraction_at_0p35_mm"]) + r"\%",
+        ]
+        for row in doppler_c.get("rows", [])
     ]
+    write_text(
+        output / "table_mbtrace_c_sensitivity.tex",
+        latex_table(
+            "lrrrr",
+            [
+                "Method",
+                "$c$",
+                "Detected peaks",
+                "Match at 0.15 mm",
+                "Match at 0.35 mm",
+            ],
+            c_table,
+        ),
+    )
+
+    displacement_table = []
     for row in displacement_rows:
-        target = row.get("target_x_mm", "")
-        signed = row.get("signed_displacement_mm", "")
-        absolute = row.get("absolute_displacement_mm", "")
         label = {
-            "receive_nsi": "Receive-NSI",
-            "angle_nsi": "Angle-NSI",
+            "receive_nsi": RECEIVE_NSI,
+            "angle_nsi": ANGLE_NSI,
         }.get(row["method"], row["method"])
         status = row["status"].replace("_", " ")
         if row.get("possible_split", "").lower() == "true":
             status += "; possible split"
-        displacement_lines.append(
-            f"{label} & {fmt(row['reference_x_mm'])} & "
-            f"{fmt(target) if target else '--'} & "
-            f"{fmt(signed) if signed else '--'} & "
-            f"{fmt(absolute) if absolute else '--'} & {status} \\\\"
+        displacement_table.append(
+            [
+                label,
+                fmt(row["reference_x_mm"]),
+                fmt(row["target_x_mm"])
+                if row.get("target_x_mm")
+                else "--",
+                fmt(row["signed_displacement_mm"])
+                if row.get("signed_displacement_mm")
+                else "--",
+                fmt(row["absolute_displacement_mm"])
+                if row.get("absolute_displacement_mm")
+                else "--",
+                status,
+            ]
         )
-    displacement_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_mbtrace_displacements.tex", "\n".join(displacement_lines))
+    write_text(
+        output / "table_mbtrace_displacements.tex",
+        latex_table(
+            "lrrrrl",
+            [
+                "Method",
+                "DAS peak",
+                "Assigned peak",
+                "Signed shift",
+                "Absolute shift",
+                "Classification",
+            ],
+            displacement_table,
+        ),
+    )
 
-    control_lines = [
-        r"\begin{tabular}{@{}llrrr@{}}",
-        r"\toprule",
-        r"Control & Method & Median (ms) & Relative to DAS & Transfer (MiB) \\",
-        r"\midrule",
-    ]
-    for run_id, control_label in (
+    control_rows: list[list[str]] = []
+    inverse_timing_names = {
+        value: key for key, value in TIMING_METHODS.items()
+    }
+    for run_id, label in (
         ("baseline_preloaded", "Preloaded kernel"),
         ("baseline_host_stacked", "Host-stacked input"),
     ):
-        rows = [row for row in timing.get("rows", []) if row.get("run_id") == run_id]
-        for row in rows:
-            canonical = next(
-                (name for name, timing_name in TIMING_METHODS.items()
-                 if timing_name == row["method"]),
-                row["method"],
+        for row in timing.get("rows", []):
+            if (
+                row.get("run_id") != run_id
+                or row.get("method") not in inverse_timing_names
+            ):
+                continue
+            method = inverse_timing_names[row["method"]]
+            control_rows.append(
+                [
+                    label,
+                    method,
+                    fmt(row["median_ms"], 2),
+                    fmt(row["ratio_to_das_median"], 3),
+                    f"{finite(row['timed_total_transfer_bytes'], 'control bytes') / 2**20:.2f}",
+                ]
             )
-            label = method_label(canonical) if canonical in METHODS else canonical
-            control_lines.append(
-                f"{control_label} & {label} & {fmt(row['median_ms'], 2)} & "
-                f"{fmt(row['ratio_to_das_median'], 3)} & "
-                f"{finite(row['timed_total_transfer_bytes'], 'control bytes') / 2**20:.2f} \\\\"
-            )
-    control_lines.extend([r"\bottomrule", r"\end{tabular}"])
-    write_text(output / "table_timing_controls.tex", "\n".join(control_lines))
+    write_text(
+        output / "table_timing_controls.tex",
+        latex_table(
+            "llrrr",
+            [
+                "Control",
+                "Method",
+                "Median (ms)",
+                "Relative to DAS",
+                "Transfer (MiB)",
+            ],
+            control_rows,
+        ),
+    )
+
+    timing_path = output / "figures" / "figure5_computation_benchmark.png"
+    timing_figure(
+        timing_path, timing.get("rows", []), conventional_timing_rows
+    )
+    supplementary_output = output / "supplementary"
+    supplementary_output.mkdir(parents=True, exist_ok=True)
+    plot_angle_sweeps(
+        supplementary_output / "figureS1_angle_sweeps.png",
+        robustness_angle_rows,
+    )
+    plot_perturbations(
+        supplementary_output / "figureS2_noise_phase_sweeps.png",
+        robustness_perturbation_rows,
+    )
+    plot_spatial_psf(
+        supplementary_output / "figureS3_spatial_psf.png",
+        robustness_spatial_rows,
+    )
 
     figure_map = {
-        results / "point_target" / "single_scatterer_fine_psf_contours.png": output / "figures" / "figure1a_psf_contours_revision.png",
-        results / "point_target" / "single_scatterer_fwhm_profiles.png": output / "figures" / "figure1b_psf_profiles_revision.png",
-        results / "experimental_psf" / "picmus_experimental_psf.png": output / "figures" / "figure2_experimental_psf.png",
-        results / "doppler" / "power_doppler_four_method_comparison.png": output / "figures" / "figure3_microbubble_power_doppler_revision.png",
-        results / "bmode" / "Fig_BMode_NSI_Comparison_CL.png": output / "figures" / "figure4a_carotid_longitudinal_revision.png",
-        results / "bmode" / "Fig_BMode_NSI_Comparison_CC.png": output / "figures" / "figure4b_carotid_cross_section_revision.png",
-        results / "timing_scaling" / "nsi_timing_scaling_summary.png": output / "figures" / "figure5_timing_scaling.png",
-        results / "theory" / "angular_null_small_angle_derivation.png": output / "supplementary" / "figureS1_angular_null_theory.png",
-        results / "point_target" / "single_scatterer_c_sensitivity.png": output / "supplementary" / "figureS5_point_target_c_sensitivity.png",
-        results / "doppler" / "microbubble_peak_concordance_tolerance_sweep.png": output / "supplementary" / "figureS6_mbtrace_concordance.png",
-        results / "doppler" / "mbtrace_c_sensitivity.png": output / "supplementary" / "figureS7_mbtrace_c_sensitivity.png",
-        results / "bmode" / "bmode_nsi_c_sensitivity.png": output / "supplementary" / "figureS8_carotid_c_sensitivity.png",
-        results / "experimental_psf" / "picmus_experimental_psf_c_sensitivity.png": output / "supplementary" / "figureS9_experimental_psf_c_sensitivity.png",
-        results / "conventional_baselines" / "conventional_baseline_experimental_psf.png": output / "reviewer_comparison" / "conventional_experimental_psf.png",
-        results / "conventional_baselines" / "conventional_baseline_experimental_psf_profiles.png": output / "reviewer_comparison" / "conventional_experimental_psf_profiles.png",
-        results / "conventional_baselines" / "conventional_baseline_carotid_CL.png": output / "reviewer_comparison" / "conventional_carotid_longitudinal.png",
-        results / "conventional_baselines" / "conventional_baseline_carotid_CC.png": output / "reviewer_comparison" / "conventional_carotid_cross_section.png",
-        results / "conventional_timing" / "conventional_timing_summary.png": output / "reviewer_comparison" / "conventional_timing.png",
+        results
+        / "simulation_six_method"
+        / "simulation_six_method_comparison.png": output
+        / "figures"
+        / "figure1_simulation_six_method.png",
+        results
+        / "picmus_full_phantom"
+        / "picmus_full_phantom_six_method.png": output
+        / "figures"
+        / "figure2_picmus_full_phantom_six_method.png",
+        results
+        / "doppler"
+        / "power_doppler_three_method_comparison.png": output
+        / "figures"
+        / "figure3_microbubble_power_doppler.png",
+        results
+        / "conventional_baselines"
+        / "conventional_baseline_carotid_combined.png": output
+        / "figures"
+        / "figure4_carotid_six_method.png",
+        results
+        / "theory"
+        / "angular_null_small_angle_derivation.png": output
+        / "supplementary"
+        / "figureS1_angular_null_theory.png",
+        results
+        / "point_target"
+        / "single_scatterer_c_sensitivity.png": output
+        / "supplementary"
+        / "figureS5_point_target_c_sensitivity.png",
+        results
+        / "doppler"
+        / "microbubble_peak_concordance_tolerance_sweep.png": output
+        / "supplementary"
+        / "figureS6_mbtrace_concordance.png",
+        results / "doppler" / "mbtrace_c_sensitivity.png": output
+        / "supplementary"
+        / "figureS7_mbtrace_c_sensitivity.png",
+        results / "bmode" / "bmode_nsi_c_sensitivity.png": output
+        / "supplementary"
+        / "figureS8_carotid_c_sensitivity.png",
+        results
+        / "experimental_psf"
+        / "picmus_experimental_psf_c_sensitivity.png": output
+        / "supplementary"
+        / "figureS9_experimental_psf_c_sensitivity.png",
+        results
+        / "conventional_baselines"
+        / "conventional_baseline_experimental_psf.png": output
+        / "supplementary"
+        / "figureS10_conventional_psf_maps.png",
+        results
+        / "conventional_baselines"
+        / "conventional_baseline_experimental_psf_profiles.png": output
+        / "supplementary"
+        / "figureS11_conventional_psf_profiles.png",
+        results
+        / "conventional_timing"
+        / "conventional_timing_summary.png": output
+        / "supplementary"
+        / "figureS12_conventional_timing.png",
     }
     for source, destination in figure_map.items():
         copy_required(source, destination)
@@ -673,13 +879,30 @@ def main() -> None:
     manifest = {
         "publication_checks_passed": not problems,
         "problems": problems,
+        "canonical_methods": list(METHODS),
+        "main_figure_order": [
+            "simulation_six_method",
+            "picmus_full_phantom_six_method",
+            "microbubble_power_doppler",
+            "carotid_six_method",
+            "computation_benchmark",
+        ],
         "results_root": str(results),
+        "robustness_source": str(robustness_root),
         "generated_files": sorted(
-            str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()
+            str(path.relative_to(output))
+            for path in output.rglob("*")
+            if path.is_file()
         ),
     }
-    write_text(output / "revision_asset_manifest.json", json.dumps(manifest, indent=2))
-    print(f"Materialized {len(manifest['generated_files']) + 1} revision assets in {output}")
+    write_text(
+        output / "revision_asset_manifest.json",
+        json.dumps(manifest, indent=2),
+    )
+    print(
+        f"Materialized {len(manifest['generated_files']) + 1} revision assets "
+        f"in {output}"
+    )
 
 
 if __name__ == "__main__":

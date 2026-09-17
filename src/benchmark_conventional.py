@@ -29,17 +29,8 @@ from adaptive_beamforming import (
     receive_cf_das,
     signed_sqrt_pair_sum,
 )
+from method_names import ANGLE_NSI, CF_DAS, DAS, DMAS, METHODS, MV, RECEIVE_NSI
 from nsi_core import nsi_envelope
-
-
-METHODS = (
-    "DAS",
-    "Receive CF-DAS",
-    "MV",
-    "F-DMAS",
-    "Receive-NSI",
-    "Angle-NSI",
-)
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,16 +112,16 @@ def execute_method(
 ) -> Any:
     """Run one method from the common already-delayed channel tensor."""
 
-    if method == "DAS":
+    if method == DAS:
         return xp.abs(xp.sum(delayed_iq, axis=(0, 3)))
-    if method == "Receive CF-DAS":
+    if method == CF_DAS:
         compounded = xp.zeros(delayed_iq.shape[1:3], dtype=delayed_iq.dtype)
         for angle_index in range(delayed_iq.shape[0]):
             compounded += receive_cf_das(
                 delayed_iq[angle_index], active_mask, xp=xp
             )
         return xp.abs(compounded)
-    if method == "MV":
+    if method == MV:
         compounded = xp.zeros(delayed_iq.shape[1:3], dtype=delayed_iq.dtype)
         for angle_index in range(delayed_iq.shape[0]):
             compounded += capon_minimum_variance(
@@ -141,7 +132,7 @@ def execute_method(
                 xp=xp,
             )
         return xp.abs(compounded)
-    if method == "F-DMAS":
+    if method == DMAS:
         pair_sum = xp.zeros(delayed_rf.shape[1:3], dtype=xp.float32)
         for angle_index in range(delayed_rf.shape[0]):
             pair_sum += signed_sqrt_pair_sum(
@@ -152,11 +143,11 @@ def execute_method(
                 pair_sum, fdmas_coefficients, depth_axis=1, xp=xp
             )
         )
-    if method == "Receive-NSI":
+    if method == RECEIVE_NSI:
         uniform = xp.sum(delayed_iq, axis=(0, 3))
         null = xp.sum(delayed_iq * receive_sign[None, ...], axis=(0, 3))
         return nsi_envelope(uniform, null, nsi_c, xp=xp)
-    if method == "Angle-NSI":
+    if method == ANGLE_NSI:
         per_angle = xp.sum(delayed_iq, axis=3)
         uniform = xp.sum(per_angle, axis=0)
         null = xp.sum(per_angle * angular_weights[:, None, None], axis=0)
@@ -346,7 +337,7 @@ def main() -> None:
             "scope": "post-delay beamformer kernel",
             "common_input": "complex IQ and real RF delayed receive-channel tensors resident on GPU",
             "excluded": "raw-data H2D transfer, receive-delay calculation, interpolation, and final D2H transfer",
-            "included": "method-specific reduction; F-DMAS FIR and Hilbert transform; MV covariance and solve",
+            "included": "method-specific reduction; DMAS FIR and Hilbert transform; MV covariance and solve",
         },
         "dimensions": {
             "nx": args.nx,

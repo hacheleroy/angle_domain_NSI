@@ -46,7 +46,6 @@ from trace_width_analysis import (
 )
 from nsi_core import (
     angular_sign_weights,
-    coherence_factor_from_moments,
     nsi_envelope,
 )
 
@@ -242,7 +241,6 @@ print(f"Beamforming {Nt} temporal frames (frame-by-frame GPU demodulation)...")
 t_bf_start = time.perf_counter()
 
 M_das = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
-M_angle_power = cp.zeros((num_voxels, Nt), dtype=cp.float32)
 M_zm_ang = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
 M_u_conv = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
 M_zm_conv = cp.zeros((num_voxels, Nt), dtype=cp.complex64)
@@ -255,7 +253,6 @@ for t in range(Nt):
     iq_frame_gpu = (analytic_frame * carrier_gpu).astype(cp.complex64)
 
     comp_das = cp.zeros(num_voxels, dtype=cp.complex64)
-    comp_angle_power = cp.zeros(num_voxels, dtype=cp.float32)
     
     comp_zm_ang = cp.zeros(num_voxels, dtype=cp.complex64)
     
@@ -280,13 +277,11 @@ for t in range(Nt):
         contrib_zm = base * signMat_gpu
 
         comp_das += angle_result
-        comp_angle_power += cp.abs(angle_result) ** 2
         comp_zm_ang += angle_result * apo_zm_gpu[i]
         comp_u_conv += angle_result
         comp_zm_conv += contrib_zm.sum(axis=1)
 
     M_das[:, t] = comp_das
-    M_angle_power[:, t] = comp_angle_power
     M_zm_ang[:, t] = comp_zm_ang
     M_u_conv[:, t] = comp_u_conv
     M_zm_conv[:, t] = comp_zm_conv
@@ -334,14 +329,6 @@ def joint_filtered_nsi(uniform, null, c_value, low, high):
 
 M_das_filt = svd_filter(M_das, svd_low, svd_high)
 
-# Angular coherence-factor-weighted DAS comparator.  The ensemble is the same
-# set of focused per-angle images used by Angle-NSI, rather than receive-channel
-# contributions; this precise definition is recorded with the output.
-M_cf = coherence_factor_from_moments(
-    M_das, M_angle_power, num_angles, xp=cp
-) * M_das
-M_cf_filt = svd_filter(M_cf, svd_low, svd_high)
-
 M_angular_nsi = joint_filtered_nsi(
     M_das, M_zm_ang, dc_offset, svd_low, svd_high
 )
@@ -353,12 +340,10 @@ M_conv_nsi = joint_filtered_nsi(
 # 6. Power Doppler: DAS vs Conventional NSI vs Angular NSI
 # ---------------------------------------------------------------
 pd_das = cp.sqrt(cp.sum(cp.abs(M_das_filt) ** 2, axis=1).reshape(len(x), len(z)))
-pd_cf = cp.sqrt(cp.sum(cp.abs(M_cf_filt) ** 2, axis=1).reshape(len(x), len(z)))
 pd_conv = cp.sqrt(cp.sum(M_conv_nsi ** 2, axis=1).reshape(len(x), len(z)))
 pd_angular = cp.sqrt(cp.sum(M_angular_nsi ** 2, axis=1).reshape(len(x), len(z)))
 
 pd_das_db = db_zero(pd_das).get()
-pd_cf_db = db_zero(pd_cf).get()
 pd_conv_db = db_zero(pd_conv).get()
 pd_angular_db = db_zero(pd_angular).get()
 
@@ -403,7 +388,6 @@ for path in concordance_paths.values():
 das_peaks = trace_analysis["peaks"]["das"]
 comparison_profiles = {
     "DAS": profile_das,
-    "Angular CF-DAS": pd_cf_db[:, z_cross_idx],
     "Receive-NSI": profile_conv,
     "Angle-NSI": profile_angular,
 }
@@ -442,12 +426,12 @@ for method_key, profile in comparison_profiles.items():
             ),
         }
     )
-comparison_csv = output_dir / "mbtrace_four_method_comparison.csv"
+comparison_csv = output_dir / "mbtrace_three_method_comparison.csv"
 with comparison_csv.open("w", newline="", encoding="utf-8") as stream:
     writer = csv.DictWriter(stream, fieldnames=list(comparison_rows[0]))
     writer.writeheader()
     writer.writerows(comparison_rows)
-print(f"Saved four-method trace comparison to {comparison_csv}")
+print(f"Saved three-method trace comparison to {comparison_csv}")
 
 # ---------------------------------------------------------------
 # 6c. Sensitivity of positional concordance and widths to c
@@ -620,16 +604,15 @@ for path in (c_csv, c_json, c_figure):
 # ---------------------------------------------------------------
 # 6d. Power-Doppler images and matched cross-section profile
 # ---------------------------------------------------------------
-fig = plt.figure(figsize=(22, 5.5), dpi=300)
+fig = plt.figure(figsize=(18, 5.5), dpi=300)
 gs = fig.add_gridspec(
-    1, 6, width_ratios=[1, 1, 1, 1, 0.05, 1.15], wspace=0.35
+    1, 5, width_ratios=[1, 1, 1, 0.05, 1.15], wspace=0.35
 )
 ax0 = fig.add_subplot(gs[0, 0])
-ax_cf = fig.add_subplot(gs[0, 1], sharey=ax0)
-ax1 = fig.add_subplot(gs[0, 2], sharey=ax0)
-ax2 = fig.add_subplot(gs[0, 3], sharey=ax0)
-cax = fig.add_subplot(gs[0, 4])
-ax_profile = fig.add_subplot(gs[0, 5])
+ax1 = fig.add_subplot(gs[0, 1], sharey=ax0)
+ax2 = fig.add_subplot(gs[0, 2], sharey=ax0)
+cax = fig.add_subplot(gs[0, 3])
+ax_profile = fig.add_subplot(gs[0, 4])
 
 im0 = ax0.imshow(
     pd_das_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
@@ -638,41 +621,26 @@ ax0.set_xlabel("Lateral [mm]")
 ax0.set_ylabel("Depth [mm]")
 ax0.set_title("(a)")
 
-ax_cf.imshow(
-    pd_cf_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
-)
-ax_cf.set_xlabel("Lateral [mm]")
-ax_cf.set_title("(b)")
-plt.setp(ax_cf.get_yticklabels(), visible=False)
-
 ax1.imshow(
     pd_conv_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
 )
 ax1.set_xlabel("Lateral [mm]")
-ax1.set_title("(c)")
+ax1.set_title("(b)")
 plt.setp(ax1.get_yticklabels(), visible=False)
 
 ax2.imshow(
     pd_angular_db.T, cmap="gray", vmin=-DR, vmax=0, extent=extent, aspect="equal"
 )
 ax2.set_xlabel("Lateral [mm]")
-ax2.set_title("(d)")
+ax2.set_title("(c)")
 plt.setp(ax2.get_yticklabels(), visible=False)
 fig.colorbar(im0, cax=cax, label="Normalized intensity [dB]")
 
-for axis in (ax0, ax_cf, ax1, ax2):
+for axis in (ax0, ax1, ax2):
     axis.axhline(z_cross_actual_mm, color="orange", linewidth=1.2)
 
 ax_profile.plot(
     x_mm, profile_das, color="tab:purple", linestyle="-", linewidth=1.4, label="DAS"
-)
-ax_profile.plot(
-    x_mm,
-    pd_cf_db[:, z_cross_idx],
-    color="tab:green",
-    linestyle=":",
-    linewidth=1.4,
-    label="Angular CF-DAS",
 )
 ax_profile.plot(
     x_mm,
@@ -706,12 +674,12 @@ for match_id, match in enumerate(trace_analysis["matches"], start=1):
 ax_profile.set_xlabel("Lateral [mm]")
 ax_profile.set_ylabel("Normalized intensity [dB]")
 ax_profile.set_ylim(-DR - 4.0, -4.0)
-ax_profile.set_title("(e)")
+ax_profile.set_title("(d)")
 ax_profile.legend(frameon=False, fontsize=8)
 ax_profile.yaxis.set_label_position("right")
 ax_profile.yaxis.tick_right()
 
-png_out = os.path.join(output_dir, "power_doppler_four_method_comparison.png")
+png_out = os.path.join(output_dir, "power_doppler_three_method_comparison.png")
 fig.savefig(png_out, dpi=300, bbox_inches="tight")
 plt.close(fig)
 print(f"Saved comparison figure with matched trace identifiers to {png_out}")

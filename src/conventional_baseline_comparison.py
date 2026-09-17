@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reviewer-facing comparison with conventional CF-DAS, MV, and F-DMAS.
+"""Reviewer-facing comparison with CF-DAS, MV, and filtered DMAS.
 
 This script deliberately leaves the established four-method analyses intact.
 It reconstructs one representative experimental PICMUS point target and both
@@ -8,12 +8,12 @@ PICMUS carotid views with a common delay/interpolation implementation for:
 * DAS;
 * conventional receive-aperture CF-DAS;
 * receive-domain Capon minimum variance (MV);
-* receive-domain filtered DMAS (F-DMAS);
+* receive-domain delay-multiply-and-sum (DMAS), with the Matrone filter;
 * Receive-NSI; and
 * Angle-NSI.
 
-MV and F-DMAS use the fixed literature/USTB conventions declared in the JSON
-output.  F-DMAS is evaluated on a fine axial grid that supports the band near
+MV and DMAS use the fixed literature/USTB conventions declared in the JSON
+output.  DMAS is evaluated on a fine axial grid that supports the band near
 2*f0 and is then sampled onto the common display/metric grid.  This avoids the
 silent aliasing that would result from filtering the ordinary B-mode grid.
 """
@@ -53,6 +53,7 @@ from adaptive_beamforming import (
     signed_sqrt_pair_sum,
     temporal_half_window_from_wavelengths,
 )
+from method_names import ANGLE_NSI, CF_DAS, DAS, DMAS, METHODS, MV, RECEIVE_NSI
 from nsi_core import angular_sign_weights, nsi_envelope
 from picmus_experimental_psf import (
     TargetGrid,
@@ -66,31 +67,23 @@ from picmus_io import PicmusDataset, load_picmus_dataset, load_picmus_phantom
 from psf_metrics import amplitude_to_db
 
 
-METHODS = (
-    "DAS",
-    "Receive CF-DAS",
-    "MV",
-    "F-DMAS",
-    "Receive-NSI",
-    "Angle-NSI",
-)
-IQ_METHODS = tuple(method for method in METHODS if method != "F-DMAS")
+IQ_METHODS = tuple(method for method in METHODS if method != DMAS)
 FDMAS_X_CHUNK_LINES = 32
 COLORS = {
-    "DAS": "#6a3d9a",
-    "Receive CF-DAS": "#2ca02c",
-    "MV": "#ff7f0e",
-    "F-DMAS": "#8c564b",
-    "Receive-NSI": "#d62728",
-    "Angle-NSI": "#1f77b4",
+    DAS: "#6a3d9a",
+    CF_DAS: "#2ca02c",
+    MV: "#ff7f0e",
+    DMAS: "#8c564b",
+    RECEIVE_NSI: "#d62728",
+    ANGLE_NSI: "#1f77b4",
 }
 MARKERS = {
-    "DAS": "o",
-    "Receive CF-DAS": "P",
-    "MV": "D",
-    "F-DMAS": "X",
-    "Receive-NSI": "s",
-    "Angle-NSI": "^",
+    DAS: "o",
+    CF_DAS: "P",
+    MV: "D",
+    DMAS: "X",
+    RECEIVE_NSI: "s",
+    ANGLE_NSI: "^",
 }
 ROI_BY_VIEW = {
     "CL": {
@@ -114,7 +107,7 @@ def parse_args() -> argparse.Namespace:
     root = Path(__file__).resolve().parents[1]
     data = root / "data" / "PICMUS"
     parser = argparse.ArgumentParser(
-        description="PICMUS comparison with conventional receive CF, MV and F-DMAS"
+        description="PICMUS comparison with conventional CF-DAS, MV, and DMAS"
     )
     parser.add_argument(
         "--resolution-dataset",
@@ -252,6 +245,12 @@ def method_key(method: str) -> str:
     return method.lower().replace("-", "_").replace(" ", "_")
 
 
+LEGACY_CACHE_NAMES = {
+    CF_DAS: "Receive CF-DAS",
+    DMAS: "F-DMAS",
+}
+
+
 def load_image_cache(
     cache_path: Path,
     metadata_path: Path,
@@ -264,10 +263,12 @@ def load_image_cache(
         if metadata.get("signature") != expected_signature:
             return None
         with np.load(cache_path, allow_pickle=False) as archive:
-            images = {
-                method: archive[f"image_{method_key(method)}"].copy()
-                for method in METHODS
-            }
+            images = {}
+            for method in METHODS:
+                canonical_key = f"image_{method_key(method)}"
+                legacy_key = f"image_{method_key(LEGACY_CACHE_NAMES.get(method, method))}"
+                key = canonical_key if canonical_key in archive.files else legacy_key
+                images[method] = archive[key].copy()
             axes = {
                 name[5:]: archive[name].copy()
                 for name in archive.files
@@ -311,7 +312,7 @@ def usable_positive_image(values: np.ndarray | None) -> bool:
 def usable_complete_image(values: np.ndarray | None) -> bool:
     """Return whether every lateral line of a 2-D envelope contains signal.
 
-    F-DMAS is reconstructed in independent lateral batches.  A global peak
+    DMAS is reconstructed in independent lateral batches.  A global peak
     check is insufficient because a failed batch can leave an otherwise
     finite image with one or more all-zero lateral lines.
     """
@@ -326,7 +327,7 @@ def usable_complete_image(values: np.ndarray | None) -> bool:
 
 
 def prepare_fdmas_gpu(cp: Any) -> None:
-    """Start F-DMAS after releasing arrays from the preceding IQ methods."""
+    """Start filtered DMAS after releasing the preceding IQ-method arrays."""
 
     cp.cuda.Stream.null.synchronize()
     gc.collect()
@@ -393,6 +394,7 @@ def reconstruct_iq_methods(
     mv_configuration: MvConfiguration,
     cp: Any,
     label: str,
+    compute_mv: bool = True,
 ) -> dict[str, np.ndarray]:
     selected_data = dataset.data[:, :, angle_indices]
     selected_angles = dataset.angles_rad[angle_indices]
@@ -413,7 +415,7 @@ def reconstruct_iq_methods(
     count = points_m.shape[0]
     uniform = cp.zeros(count, dtype=cp.complex64)
     receive_cf = cp.zeros(count, dtype=cp.complex64)
-    mv = cp.zeros(count, dtype=cp.complex64)
+    mv = cp.zeros(count, dtype=cp.complex64) if compute_mv else None
     receive_null = cp.zeros(count, dtype=cp.complex64)
     angle_null = cp.zeros(count, dtype=cp.complex64)
 
@@ -434,27 +436,31 @@ def reconstruct_iq_methods(
         angle_das = cp.sum(base, axis=1)
         uniform += angle_das
         receive_cf += receive_cf_das(base, mask, xp=cp)
-        mv += capon_minimum_variance(
-            base,
-            mask,
-            grid_shape=grid_shape,
-            configuration=mv_configuration,
-            xp=cp,
-        )
+        if compute_mv:
+            assert mv is not None
+            mv += capon_minimum_variance(
+                base,
+                mask,
+                grid_shape=grid_shape,
+                configuration=mv_configuration,
+                xp=cp,
+            )
         receive_null += cp.sum(base * receive_sign_gpu, axis=1)
         angle_null += angle_weights_gpu[local_index] * angle_das
         if (local_index + 1) % 5 == 0 or local_index + 1 == len(selected_angles):
             print(f"  {label}: IQ methods {local_index + 1}/{len(selected_angles)} angles")
 
     output_gpu = {
-        "DAS": cp.abs(uniform),
-        "Receive CF-DAS": cp.abs(receive_cf),
-        "MV": cp.abs(mv),
-        "Receive-NSI": nsi_envelope(uniform, receive_null, nsi_c, xp=cp),
-        "Angle-NSI": nsi_envelope(uniform, angle_null, nsi_c, xp=cp),
+        DAS: cp.abs(uniform),
+        CF_DAS: cp.abs(receive_cf),
+        RECEIVE_NSI: nsi_envelope(uniform, receive_null, nsi_c, xp=cp),
+        ANGLE_NSI: nsi_envelope(uniform, angle_null, nsi_c, xp=cp),
     }
+    if compute_mv:
+        assert mv is not None
+        output_gpu[MV] = cp.abs(mv)
     cp.cuda.Stream.null.synchronize()
-    output = {method: cp.asnumpy(output_gpu[method]) for method in IQ_METHODS}
+    output = {method: cp.asnumpy(values) for method, values in output_gpu.items()}
     del iq_gpu, receive_time_gpu, aperture_gpu, receive_sign_gpu
     cp.get_default_memory_pool().free_all_blocks()
     return output
@@ -474,7 +480,7 @@ def reconstruct_fdmas(
     x_chunk_lines: int = FDMAS_X_CHUNK_LINES,
 ) -> tuple[np.ndarray, dict[str, Any]]:
     if x_chunk_lines < 1:
-        raise ValueError("F-DMAS lateral chunk size must be positive.")
+        raise ValueError("DMAS lateral chunk size must be positive.")
     raw_gpu = cp.asarray(dataset.data[:, :, angle_indices].real, dtype=cp.float32)
     selected_angles = dataset.angles_rad[angle_indices]
     spacing_m = float(np.median(np.diff(z_m)))
@@ -544,7 +550,7 @@ def reconstruct_fdmas(
                 midpoint = begin + (end - begin) // 2
                 fallback_count += 1
                 print(
-                    f"  {label}: F-DMAS batch lines {begin + 1}-{end} "
+                    f"  {label}: DMAS batch lines {begin + 1}-{end} "
                     f"failed pair validation at image lines {failed}; "
                     f"retrying as {begin + 1}-{midpoint} and "
                     f"{midpoint + 1}-{end}."
@@ -553,7 +559,7 @@ def reconstruct_fdmas(
                 reconstruct_batch(midpoint, end)
                 return
             raise RuntimeError(
-                f"{label} F-DMAS pair accumulation remained empty or "
+                f"{label} DMAS pair accumulation remained empty or "
                 f"non-finite for image line {begin + 1} after single-line "
                 "fallback."
             )
@@ -584,7 +590,7 @@ def reconstruct_fdmas(
                 midpoint = begin + (end - begin) // 2
                 fallback_count += 1
                 print(
-                    f"  {label}: F-DMAS batch lines {begin + 1}-{end} "
+                    f"  {label}: DMAS batch lines {begin + 1}-{end} "
                     f"failed filter validation at image lines {failed}; "
                     f"retrying as {begin + 1}-{midpoint} and "
                     f"{midpoint + 1}-{end}."
@@ -593,7 +599,7 @@ def reconstruct_fdmas(
                 reconstruct_batch(midpoint, end)
                 return
             raise RuntimeError(
-                f"{label} F-DMAS filtering/Hilbert output remained empty or "
+                f"{label} DMAS filtering/Hilbert output remained empty or "
                 f"non-finite for image line {begin + 1} after single-line "
                 "fallback."
             )
@@ -606,7 +612,7 @@ def reconstruct_fdmas(
         del receive_time_gpu, aperture_gpu, pair_sum, pair_image, analytic
         cp.get_default_memory_pool().free_all_blocks()
         print(
-            f"  {label}: validated F-DMAS batch lines {begin + 1}-{end} "
+            f"  {label}: validated DMAS batch lines {begin + 1}-{end} "
             f"({end - begin} lines, {len(selected_angles)} angles)"
         )
 
@@ -619,12 +625,12 @@ def reconstruct_fdmas(
         or not usable_complete_image(envelope)
     ):
         raise RuntimeError(
-            f"{label} F-DMAS output is incomplete after validated chunked "
+            f"{label} DMAS output is incomplete after validated chunked "
             "reconstruction "
             f"(pair peak={pair_peak:.6e}, analytic peak={analytic_peak:.6e})."
         )
     print(
-        f"  {label}: F-DMAS stage peaks "
+        f"  {label}: DMAS stage peaks "
         f"pair={pair_peak:.6e}, analytic={analytic_peak:.6e}; "
         f"validated batches={len(successful_batch_sizes)}, "
         f"adaptive retries={fallback_count}."
@@ -775,7 +781,13 @@ def plot_psf(
     target_x_mm: float,
     target_z_mm: float,
 ) -> None:
-    figure, axes = plt.subplots(2, 3, figsize=(11.0, 7.1), dpi=180)
+    figure, axes = plt.subplots(
+        2,
+        3,
+        figsize=(11.0, 7.1),
+        dpi=180,
+        constrained_layout=True,
+    )
     for axis, method in zip(axes.flat, METHODS):
         image_db = amplitude_to_db(arrays[method]["map"], floor_db=-60.0)
         im = axis.imshow(
@@ -837,7 +849,13 @@ def plot_carotid(
     z_m: np.ndarray,
 ) -> None:
     roi = ROI_BY_VIEW[view]
-    figure, axes = plt.subplots(2, 3, figsize=(10.5, 8.1), dpi=180)
+    figure, axes = plt.subplots(
+        2,
+        3,
+        figsize=(10.5, 8.1),
+        dpi=180,
+        constrained_layout=True,
+    )
     for axis, method in zip(axes.flat, METHODS):
         im = axis.imshow(
             normalized_db(images[method]).T,
@@ -865,6 +883,77 @@ def plot_carotid(
         axis.set_xlabel("Lateral position [mm]")
         axis.set_ylabel("Depth [mm]")
     figure.colorbar(im, ax=axes.ravel().tolist(), label="Normalized amplitude [dB]", shrink=0.82)
+    figure.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(figure)
+
+
+def plot_carotid_combined(
+    path: Path,
+    cases: dict[str, tuple[dict[str, np.ndarray], np.ndarray, np.ndarray]],
+) -> None:
+    """Plot both carotid views as a compact two-row manuscript figure."""
+
+    figure, axes = plt.subplots(
+        2,
+        len(METHODS),
+        figsize=(11.0, 5.2),
+        dpi=180,
+        constrained_layout=True,
+    )
+    image_artist = None
+    for row_index, view in enumerate(("CL", "CC")):
+        images, x_m, z_m = cases[view]
+        roi = ROI_BY_VIEW[view]
+        for column_index, method in enumerate(METHODS):
+            axis = axes[row_index, column_index]
+            image_artist = axis.imshow(
+                normalized_db(images[method]).T,
+                extent=[
+                    x_m[0] * 1e3,
+                    x_m[-1] * 1e3,
+                    z_m[-1] * 1e3,
+                    z_m[0] * 1e3,
+                ],
+                cmap="gray",
+                vmin=-60.0,
+                vmax=0.0,
+                aspect="equal",
+            )
+            for center_name, radius_name, color in (
+                ("signal_center_cm", "signal_radius_cm", "#ff7f0e"),
+                ("background_center_cm", "background_radius_cm", "#00bcd4"),
+            ):
+                center = roi[center_name]
+                axis.add_patch(
+                    Circle(
+                        (center[0] * 10.0, center[1] * 10.0),
+                        roi[radius_name] * 10.0,
+                        fill=False,
+                        color=color,
+                        linewidth=0.7,
+                    )
+                )
+            if row_index == 0:
+                axis.set_title(method, fontsize=12)
+                axis.tick_params(labelbottom=False)
+            else:
+                axis.set_xlabel("Lateral [mm]", fontsize=10)
+            if column_index == 0:
+                axis.set_ylabel(
+                    f"{roi['label']}\nDepth [mm]",
+                    fontsize=10,
+                )
+            else:
+                axis.tick_params(labelleft=False)
+            axis.tick_params(labelsize=9)
+    assert image_artist is not None
+    colorbar = figure.colorbar(
+        image_artist,
+        ax=axes.ravel().tolist(),
+        shrink=0.82,
+    )
+    colorbar.set_label("Normalized amplitude [dB]", fontsize=10)
+    colorbar.ax.tick_params(labelsize=9)
     figure.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(figure)
 
@@ -932,11 +1021,11 @@ def psf_case(
         )
         cache_changed = True
 
-    if not usable_positive_image(flat_images.get("F-DMAS")):
+    if not usable_positive_image(flat_images.get(DMAS)):
         if cached is not None:
             print(
-                "Cached PSF F-DMAS image is empty; preserving the five valid "
-                "methods and rebuilding F-DMAS only."
+                "Cached PSF DMAS image is empty; preserving the five valid "
+                "methods and rebuilding DMAS only."
             )
         prepare_fdmas_gpu(cp)
         fdmas_spacing_m = args.fdmas_z_spacing_mm * 1e-3
@@ -963,7 +1052,7 @@ def psf_case(
         fdmas_source_peak = float(np.max(fdmas_image))
         if not usable_positive_image(fdmas_image):
             raise RuntimeError(
-                "F-DMAS produced an empty source envelope before PSF "
+                "DMAS produced an empty source envelope before PSF "
                 "resampling. The valid IQ cache was retained."
             )
         fdmas_map = resample_regular_image(
@@ -987,17 +1076,17 @@ def psf_case(
             np.asarray([target_x_mm * 1e-3]),
             grid.axial_z_mm * 1e-3,
         )[0]
-        flat_images["F-DMAS"] = np.concatenate(
+        flat_images[DMAS] = np.concatenate(
             [fdmas_map.ravel(), fdmas_lateral, fdmas_axial]
         )
-        fdmas_resampled_peak = float(np.max(flat_images["F-DMAS"]))
-        if not usable_positive_image(flat_images["F-DMAS"]):
+        fdmas_resampled_peak = float(np.max(flat_images[DMAS]))
+        if not usable_positive_image(flat_images[DMAS]):
             raise RuntimeError(
-                "F-DMAS became empty during PSF resampling. The valid IQ "
+                "DMAS became empty during PSF resampling. The valid IQ "
                 "cache was retained."
             )
         print(
-            "  PSF: validated F-DMAS envelope "
+            "  PSF: validated DMAS envelope "
             f"(source peak={fdmas_source_peak:.6e}, "
             f"resampled peak={fdmas_resampled_peak:.6e})."
         )
@@ -1075,7 +1164,12 @@ def carotid_case(
     output_dir: Path,
     cp: Any,
     filter_configuration: FdmasFilterConfiguration,
-) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
+) -> tuple[
+    dict[str, Any],
+    list[dict[str, Any]],
+    str,
+    tuple[dict[str, np.ndarray], np.ndarray, np.ndarray],
+]:
     x_min, x_max, z_min, z_max = carotid_bounds_m(view)
     x_m = regular_axis(x_min, x_max, args.carotid_x_spacing_mm * 1e-3)
     z_m = regular_axis(z_min, z_max, args.carotid_z_spacing_mm * 1e-3)
@@ -1134,11 +1228,11 @@ def carotid_case(
         }
         cache_changed = True
 
-    if not usable_complete_image(images.get("F-DMAS")):
+    if not usable_complete_image(images.get(DMAS)):
         if cached is not None:
             print(
-                f"Cached carotid {view} F-DMAS image is empty or incomplete; "
-                "preserving the five valid methods and rebuilding F-DMAS only."
+                f"Cached carotid {view} DMAS image is empty or incomplete; "
+                "preserving the five valid methods and rebuilding DMAS only."
             )
         prepare_fdmas_gpu(cp)
         fdmas_z, _ = fdmas_padded_axis(
@@ -1163,20 +1257,20 @@ def carotid_case(
         fdmas_source_peak = float(np.max(fdmas_fine))
         if not usable_complete_image(fdmas_fine):
             raise RuntimeError(
-                f"F-DMAS produced an empty or incomplete source envelope for carotid "
+                f"DMAS produced an empty or incomplete source envelope for carotid "
                 f"{view}. The valid IQ cache was retained."
             )
-        images["F-DMAS"] = resample_regular_image(
+        images[DMAS] = resample_regular_image(
             fdmas_fine, x_m, fdmas_z, x_m, z_m
         )
-        fdmas_resampled_peak = float(np.max(images["F-DMAS"]))
-        if not usable_complete_image(images["F-DMAS"]):
+        fdmas_resampled_peak = float(np.max(images[DMAS]))
+        if not usable_complete_image(images[DMAS]):
             raise RuntimeError(
-                f"F-DMAS became empty or incomplete while resampling carotid {view}. "
+                f"DMAS became empty or incomplete while resampling carotid {view}. "
                 "The valid IQ cache was retained."
             )
         print(
-            f"  carotid {view}: validated F-DMAS envelope "
+            f"  carotid {view}: validated DMAS envelope "
             f"(source peak={fdmas_source_peak:.6e}, "
             f"resampled peak={fdmas_resampled_peak:.6e})."
         )
@@ -1214,6 +1308,7 @@ def carotid_case(
         },
         rows,
         str(figure_path.resolve()),
+        (images, x_m, z_m),
     )
 
 
@@ -1265,7 +1360,7 @@ def main() -> None:
 
     base_metadata: dict[str, Any] = {
         "script": Path(__file__).name,
-        "schema_version": 2,
+        "schema_version": 3,
         "run_started_utc": datetime.now(timezone.utc).isoformat(),
         "methods": list(METHODS),
         "quick_engineering_run": bool(args.quick),
@@ -1353,8 +1448,9 @@ def main() -> None:
     view_summaries = []
     all_rows = list(psf_rows)
     figures = dict(psf_artifacts)
+    carotid_cases = {}
     for view, dataset in (("CL", carotid_long), ("CC", carotid_cross)):
-        view_summary, rows, figure = carotid_case(
+        view_summary, rows, figure, case = carotid_case(
             view,
             dataset,
             angle_indices[view],
@@ -1366,6 +1462,11 @@ def main() -> None:
         view_summaries.append(view_summary)
         all_rows.extend(rows)
         figures[f"carotid_{view}"] = figure
+        carotid_cases[view] = case
+
+    combined_carotid_path = output_dir / "conventional_baseline_carotid_combined.png"
+    plot_carotid_combined(combined_carotid_path, carotid_cases)
+    figures["carotid_combined"] = str(combined_carotid_path.resolve())
 
     metrics_path = output_dir / "conventional_baseline_metrics.csv"
     write_csv(metrics_path, all_rows)

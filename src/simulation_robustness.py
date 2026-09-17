@@ -43,13 +43,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from method_names import ANGLE_NSI, DAS, RECEIVE_NSI, canonical_method_name
+
 
 HALF_AMPLITUDE_DB = float(20.0 * np.log10(0.5))
-METHOD_ORDER = ("DAS", "Conventional NSI", "Angular NSI")
+METHOD_ORDER = (DAS, RECEIVE_NSI, ANGLE_NSI)
 METHOD_STYLES = {
-    "DAS": ("tab:purple", "-", "o"),
-    "Conventional NSI": ("tab:red", "--", "s"),
-    "Angular NSI": ("tab:blue", "-.", "^")
+    DAS: ("tab:purple", "-", "o"),
+    RECEIVE_NSI: ("tab:red", "--", "s"),
+    ANGLE_NSI: ("tab:blue", "-.", "^")
 }
 
 
@@ -713,8 +715,8 @@ class NSISimulator:
         self.cp.cuda.Stream.null.synchronize()
         output = {
             "DAS": self.cp.asnumpy(self.cp.abs(uniform_sum)),
-            "Conventional NSI": self.cp.asnumpy(receive_envelope),
-            "Angular NSI": self.cp.asnumpy(angle_envelope),
+            RECEIVE_NSI: self.cp.asnumpy(receive_envelope),
+            ANGLE_NSI: self.cp.asnumpy(angle_envelope),
         }
         del (
             scan_gpu,
@@ -830,7 +832,7 @@ def plot_angle_sweeps(path: Path, rows: list[dict[str, Any]]) -> None:
                 row
                 for row in rows
                 if row.get("scenario_type") == scenario_type
-                and row["method"] == method
+                and canonical_method_name(row["method"]) == method
                 and row.get("lateral_fwhm_mm") is not None
             ]
             selected.sort(key=lambda row: float(row[x_key]))
@@ -862,7 +864,7 @@ def plot_angle_sweeps(path: Path, rows: list[dict[str, Any]]) -> None:
         method_rows = {
             row["scenario_label"]: row
             for row in missing
-            if row["method"] == method
+            if canonical_method_name(row["method"]) == method
         }
         widths = [method_rows[label].get("lateral_fwhm_mm") for label in labels]
         pbr = [method_rows[label].get("peak_to_background_db") for label in labels]
@@ -920,7 +922,7 @@ def plot_perturbations(path: Path, rows: list[dict[str, Any]]) -> None:
                 values = [
                     float(row["lateral_fwhm_mm"])
                     for row in selected_kind
-                    if row["method"] == method
+                    if canonical_method_name(row["method"]) == method
                     and row[level_key] == level
                     and row.get("lateral_fwhm_mm") is not None
                 ]
@@ -959,7 +961,7 @@ def plot_spatial_psf(path: Path, rows: list[dict[str, Any]]) -> None:
             values = [
                 float(row["lateral_fwhm_mm"])
                 for row in rows
-                if row["method"] == method
+                if canonical_method_name(row["method"]) == method
                 and float(row["target_z_mm"]) == depth
                 and row.get("lateral_fwhm_mm") is not None
             ]
@@ -994,7 +996,11 @@ def plot_two_target(
     figure, axes = plt.subplots(1, 2, figsize=(11.5, 4.8), constrained_layout=True)
     for method in METHOD_ORDER:
         selected = sorted(
-            [row for row in result_rows if row["method"] == method],
+            [
+                row
+                for row in result_rows
+                if canonical_method_name(row["method"]) == method
+            ],
             key=lambda row: float(row["target_separation_mm"]),
         )
         color, line, marker = METHOD_STYLES[method]
@@ -1020,7 +1026,7 @@ def plot_two_target(
         selected = [
             row
             for row in profile_rows
-            if row["method"] == method
+            if canonical_method_name(row["method"]) == method
             and np.isclose(float(row["target_separation_mm"]), representative)
         ]
         color, line, marker = METHOD_STYLES[method]
@@ -1398,7 +1404,8 @@ def main() -> None:
         resolved = [
             float(row["target_separation_mm"])
             for row in two_target_rows
-            if row["method"] == method and row["resolved_by_minus6db_dip"]
+            if canonical_method_name(row["method"]) == method
+            and row["resolved_by_minus6db_dip"]
         ]
         minimum_resolved_separation[method] = min(resolved) if resolved else None
 

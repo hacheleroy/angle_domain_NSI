@@ -7,7 +7,9 @@ These scripts reproduce the synchronized timing benchmark and robustness analyse
 - `src/benchmark_nsi.py`: synchronized timing comparison
 - `src/benchmark_scaling.py`: matrix/element/angle scaling and transfer controls
 - `src/picmus_experimental_psf.py`: measured multi-position PICMUS PSFs
-- `src/adaptive_beamforming.py`: shared receive CF, Capon MV, and F-DMAS
+- `src/picmus_full_phantom_comparison.py`: full seven-target six-method figure
+- `src/simulation_six_method_comparison.py`: six-method point-target figure
+- `src/adaptive_beamforming.py`: shared receive CF, Capon MV, and DMAS
   primitives (NumPy/CuPy)
 - `src/conventional_baseline_comparison.py`: representative six-method
   experimental PSF and carotid comparison
@@ -62,7 +64,7 @@ python src/benchmark_nsi.py \
 This measures:
 
 1. standard DAS/coherent compounding
-2. angular CF-DAS from the per-angle image ensemble
+2. a legacy angle-ensemble coherence control retained for numerical provenance
 3. Receive-NSI from the two independent fields `U` and `Z_e`
 4. Angle-NSI from `U` and `Z_theta`
 
@@ -148,21 +150,28 @@ carotid reconstructions have independent signature-validated caches.
 
 The implementation invariants are:
 
-1. receive CF-DAS uses
+1. CF-DAS uses
    `|sum_m x_m|^2/(M_active*sum_m |x_m|^2)` per pixel and transmit angle;
 2. MV uses analytic delayed channels, every overlapping contiguous subarray,
    `L=floor(M_active/2)`, loading `trace(R)/(100L)`, and a batched linear solve
    rather than an explicit inverse;
-3. F-DMAS uses real delayed RF and
+3. DMAS uses real delayed RF and
    `sign(s_i*s_j)*sqrt(abs(s_i*s_j))` for all `i<j`, followed by the fixed
    Kaiser band-pass around `2*f0` and an analytic-signal transform;
-4. the optimized F-DMAS identity is tested numerically against the literal
+4. the optimized DMAS identity is tested numerically against the literal
    pair loop;
 5. every method uses the same delay law, interpolation, active aperture, and
    transmit-angle set before its method-specific reduction.
 
 The USTB reference files and exact reference commit are written into
 `conventional_baseline_summary.json`; USTB is not a runtime dependency.
+
+For the full-phantom overview, DAS, CF-DAS, Receive-NSI and Angle-NSI are
+reconstructed on a 0.05 mm lateral grid. MV and DMAS use 0.15 and 0.10 mm
+native lateral spacing, respectively, and are bilinearly resampled onto the
+common display grid. The target-wise central-notch diagnostic uses separate
+directly beamformed fine profiles and is therefore independent of this display
+resampling.
 
 The synchronized post-delay timing command is:
 
@@ -175,7 +184,7 @@ python src/benchmark_conventional.py \
 
 The timing boundary begins with complex-IQ and real-RF delayed channel tensors
 already resident on the GPU. It includes each method-specific reduction, MV
-covariance construction/solve, and F-DMAS FIR/Hilbert processing. It excludes
+covariance construction/solve, and DMAS FIR/Hilbert processing. It excludes
 the identical delay calculation/interpolation, disk I/O, and transfers. Both
 the boundary and leading-order operation counts are recorded in JSON.
 
@@ -217,9 +226,12 @@ python src/picmus_experimental_psf.py \
 
 Local maps use 0.02 mm sampling. Separate 0.002 mm lateral and 0.005 mm axial
 profiles are beamformed directly from channel data at every target; no coarse
-image interpolation is used. The output includes all four methods, `c`
-sensitivity, the five-target depth series, and the three-target lateral series
-near 37.5 mm.
+image interpolation is used. Its DAS, Receive-NSI and Angle-NSI profiles feed
+the target-wise central-notch diagnostic in the full six-method phantom
+figure. A notch is counted when a valley within 0.15 mm of the nominal target
+has at least 6 dB prominence between local maxima. The output also includes
+`c` sensitivity, the five-target depth series, and the three-target lateral
+series near 37.5 mm.
 
 ## 6. Full robustness study
 

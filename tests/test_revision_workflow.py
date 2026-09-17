@@ -183,6 +183,47 @@ class RevisionWorkflowTests(unittest.TestCase):
             runner.reusable_output("conventional-timing", path, self.args)
         )
 
+    def test_new_six_method_steps_require_complete_publication_output(self):
+        payload = {
+            "metadata_only": False,
+            "publication_ready": True,
+            "methods": sorted(runner.EXPECTED_PUBLICATION_METHODS),
+        }
+        path = self.write_json("simulation-six-method.json", payload)
+        self.assertTrue(
+            runner.reusable_output("simulation-six-method", path, self.args)
+        )
+
+        full_phantom = {
+            **payload,
+            "schema_version": runner.PICMUS_FULL_PHANTOM_SCHEMA_VERSION,
+            "profile_diagnostics": [
+                {
+                    "target_id": target_id,
+                    "method": method,
+                    "central_notch_depth_db": 0.0,
+                    "central_notch_detected": False,
+                }
+                for target_id in range(1, 8)
+                for method in ("DAS", "Receive-NSI", "Angle-NSI")
+            ],
+        }
+        path = self.write_json("picmus-full-phantom.json", full_phantom)
+        self.assertTrue(
+            runner.reusable_output("picmus-full-phantom", path, self.args)
+        )
+        full_phantom["schema_version"] -= 1
+        path = self.write_json("stale-picmus-full-phantom.json", full_phantom)
+        self.assertFalse(
+            runner.reusable_output("picmus-full-phantom", path, self.args)
+        )
+
+        payload["methods"].pop()
+        path = self.write_json("incomplete.json", payload)
+        self.assertFalse(
+            runner.reusable_output("simulation-six-method", path, self.args)
+        )
+
     def test_manuscript_assets_are_always_regenerated(self):
         path = self.write_json("assets.json", {"publication_checks_passed": True})
         self.assertFalse(

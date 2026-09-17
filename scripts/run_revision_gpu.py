@@ -18,9 +18,11 @@ from typing import Any
 DEFAULT_STEPS = (
     "theory",
     "point-target",
+    "simulation-six-method",
     "mbtrace",
     "carotid",
     "experimental-psf",
+    "picmus-full-phantom",
     "conventional-baselines",
     "timing",
     "conventional-timing",
@@ -40,9 +42,13 @@ EXPECTED_TIMING_CASES = {
 }
 EXPECTED_C_VALUES = {0.02, 0.05, 0.10, 0.20}
 EXPECTED_BASELINE_METHODS = {
-    "DAS", "Receive CF-DAS", "MV", "F-DMAS", "Receive-NSI", "Angle-NSI"
+    "DAS", "CF-DAS", "MV", "DMAS", "Receive-NSI", "Angle-NSI"
 }
-CONVENTIONAL_BASELINE_SCHEMA_VERSION = 2
+EXPECTED_PUBLICATION_METHODS = {
+    "DAS", "CF-DAS", "MV", "DMAS", "Receive-NSI", "Angle-NSI"
+}
+CONVENTIONAL_BASELINE_SCHEMA_VERSION = 3
+PICMUS_FULL_PHANTOM_SCHEMA_VERSION = 3
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,6 +91,16 @@ def step_definitions(
             "env": {**common_env, "NSI_OUTPUT_DIR": str(output_root / "point_target")},
             "expected": output_root / "point_target" / "simulation_psf_fwhm_summary.json",
         },
+        "simulation-six-method": {
+            "command": [
+                python,
+                str(root / "src" / "simulation_six_method_comparison.py"),
+                "--output-dir", str(output_root / "simulation_six_method"),
+                "--device", str(args.device),
+            ],
+            "env": common_env,
+            "expected": output_root / "simulation_six_method" / "simulation_six_method_summary.json",
+        },
         "mbtrace": {
             "command": [python, str(root / "src" / "doppler_mbtrace.py")],
             "env": {
@@ -94,7 +110,7 @@ def step_definitions(
                 ),
                 "NSI_OUTPUT_DIR": str(output_root / "doppler"),
             },
-            "expected": output_root / "doppler" / "mbtrace_c_sensitivity.json",
+            "expected": output_root / "doppler" / "power_doppler_three_method_comparison.png",
         },
         "carotid": {
             "command": [python, str(root / "src" / "bmode_picmus.py")],
@@ -117,6 +133,20 @@ def step_definitions(
             ],
             "env": common_env,
             "expected": output_root / "experimental_psf" / "picmus_experimental_psf_summary.json",
+        },
+        "picmus-full-phantom": {
+            "command": [
+                python,
+                str(root / "src" / "picmus_full_phantom_comparison.py"),
+                "--dataset", str(data_root / "PICMUS" / "resolution_distorsion" / "resolution_distorsion_expe_dataset_rf.hdf5"),
+                "--phantom", str(data_root / "PICMUS" / "resolution_distorsion" / "resolution_distorsion_expe_phantom.hdf5"),
+                "--local-profile-summary", str(output_root / "experimental_psf" / "picmus_experimental_psf_summary.json"),
+                "--local-profiles", str(output_root / "experimental_psf" / "picmus_experimental_psf_profiles.npz"),
+                "--output-dir", str(output_root / "picmus_full_phantom"),
+                "--device", str(args.device),
+            ] + (["--force"] if args.force else []),
+            "env": common_env,
+            "expected": output_root / "picmus_full_phantom" / "picmus_full_phantom_summary.json",
         },
         "conventional-baselines": {
             "command": [
@@ -192,7 +222,7 @@ def reusable_output(
         return False
     if name not in {
         "timing", "experimental-psf", "conventional-baselines",
-        "conventional-timing",
+        "conventional-timing", "simulation-six-method", "picmus-full-phantom",
     }:
         return True
     try:
@@ -225,6 +255,27 @@ def reusable_output(
                 for method in (
                     "DAS", "Angular CF-DAS", "Receive-NSI", "Angle-NSI"
                 )
+            )
+        )
+    if name == "simulation-six-method":
+        return bool(
+            payload.get("metadata_only") is False
+            and payload.get("publication_ready") is True
+            and set(payload.get("methods", [])) == EXPECTED_PUBLICATION_METHODS
+        )
+    if name == "picmus-full-phantom":
+        profile_rows = payload.get("profile_diagnostics", [])
+        return bool(
+            int(payload.get("schema_version", 0))
+            == PICMUS_FULL_PHANTOM_SCHEMA_VERSION
+            and payload.get("metadata_only") is False
+            and payload.get("publication_ready") is True
+            and set(payload.get("methods", [])) == EXPECTED_PUBLICATION_METHODS
+            and len(profile_rows) == 21
+            and all(
+                "central_notch_depth_db" in row
+                and "central_notch_detected" in row
+                for row in profile_rows
             )
         )
     if name == "conventional-baselines":

@@ -170,9 +170,26 @@ class ConventionalPipelineTests(unittest.TestCase):
             label="test",
         )
         self.assertEqual(
-            set(iq), {"DAS", "Receive CF-DAS", "MV", "Receive-NSI", "Angle-NSI"}
+            set(iq), {"DAS", "CF-DAS", "MV", "Receive-NSI", "Angle-NSI"}
         )
         self.assertTrue(all(value.shape == (points.shape[0],) for value in iq.values()))
+        iq_without_mv = reconstruct_iq_methods(
+            dataset,
+            np.arange(angles),
+            points,
+            grid_shape=(x_m.size, z_m.size),
+            carrier_frequency_hz=1.0e6,
+            f_number=1.0,
+            nsi_c=0.05,
+            mv_configuration=MvConfiguration(chunk_pixels=3),
+            cp=cp,
+            label="test without MV",
+            compute_mv=False,
+        )
+        self.assertEqual(
+            set(iq_without_mv),
+            {"DAS", "CF-DAS", "Receive-NSI", "Angle-NSI"},
+        )
         fine_z = np.linspace(0.8e-3, 1.5e-3, 36, dtype=np.float32)
         fdmas, metadata = reconstruct_fdmas(
             dataset,

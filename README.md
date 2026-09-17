@@ -7,23 +7,27 @@ Henri Leroy.
 **Preprint:** [arXiv:2608.18252](https://arxiv.org/abs/2608.18252)
 
 Release `v1.1.0` is the reproducibility snapshot for the PMB major
-resubmission. It includes the reviewer-requested receive CF-DAS, MV and
-F-DMAS comparison, the corrected publication GPU records, and the exact
-F-DMAS batch validation used to prevent incomplete cached images.
+resubmission. It includes the reviewer-requested CF-DAS, MV and DMAS
+implementations, the six-method publication workflow, corrected GPU records,
+and line-by-line DMAS cache validation.
 
-The repository compares four reconstructions:
+The revised publication workflow compares six reconstructions with the same
+delays, apertures and sampling:
 
-1. delay-and-sum (DAS) with coherent plane-wave compounding;
-2. angular coherence-factor-weighted DAS (angular CF-DAS);
-3. receive-domain null subtraction imaging (Receive-NSI); and
-4. angle-domain NSI (Angle-NSI), in which the zero-sum weights are applied across the
-   per-angle complex image stack.
+1. delay-and-sum (DAS);
+2. coherence-factor-weighted DAS (CF-DAS);
+3. minimum variance (MV);
+4. delay-multiply-and-sum (DMAS);
+5. Receive-NSI; and
+6. Angle-NSI, in which zero-sum weights are applied across the per-angle
+   complex image stack.
 
-The major-revision workflow additionally contains a reviewer-facing
-six-method comparison with conventional receive CF-DAS, Capon minimum
-variance (MV), and filtered DMAS (F-DMAS). These are implemented in Python/
-CuPy from the original definitions; the corresponding USTB implementations
-at a pinned commit are recorded as an independent implementation reference.
+All six are implemented in Python/CuPy from the published formulations. The
+corresponding USTB implementations at a pinned commit are recorded as an
+independent reference. CF-DAS uses the ordinary coherence factor, not a
+nonzero generalized-coherence-factor spectral band. DMAS includes the fixed
+filtering around `2*f0` specified for the standard ultrasound implementation;
+the publication label remains DMAS.
 
 Angle-NSI is a post-receive-beamforming construction. It is not algebraically
 identical to Receive-NSI and is not presented as a performance-equivalent
@@ -74,6 +78,8 @@ python -m unittest discover -s tests -v
 python src/benchmark_nsi.py --help
 python src/benchmark_scaling.py --help
 python src/picmus_experimental_psf.py --help
+python src/picmus_full_phantom_comparison.py --help
+python src/simulation_six_method_comparison.py --help
 python src/conventional_baseline_comparison.py --help
 python src/benchmark_conventional.py --help
 python src/simulation_robustness.py --help
@@ -94,18 +100,21 @@ python src/benchmark_conventional.py --quick
 
 ## Reproduce the reported analyses
 
-### Point-target simulation
+### Six-method point-target simulation
 
 ```bash
-python src/simulation_point_target.py
+python src/simulation_six_method_comparison.py \
+  --output-dir results/generated/simulation_six_method
 ```
 
-Outputs are written to `results/generated/point_target`. Override this with
-the `NSI_OUTPUT_DIR` environment variable.
+This is the source of revised manuscript figure 1. It reconstructs DAS,
+CF-DAS, MV, DMAS, Receive-NSI and Angle-NSI. Quantitative lateral profiles are
+beamformed directly on the fine grid. The DMAS axial grid is fine enough to
+keep its fixed `2*f0` band below Nyquist.
 
-The simulation includes angular CF-DAS and evaluates `c = 0.02, 0.05, 0.1,
-0.2` by default. The finest lateral grid is beamformed directly; it is not an
-interpolation of a coarser reconstructed image.
+The separate NSI offset-sensitivity analysis remains available with
+`python src/simulation_point_target.py`; it evaluates `c = 0.02, 0.05, 0.1,
+0.2` and writes to the directory selected by `NSI_OUTPUT_DIR`.
 
 ### Angular-null small-angle model
 
@@ -170,8 +179,9 @@ NSI_OUTPUT_DIR=results/generated/bmode \
 python src/bmode_picmus.py
 ```
 
-The output contains all four methods and a `c`-sensitivity table for CNR, CR,
-and gCNR.
+This script provides the NSI `c`-sensitivity table for CNR, CR and gCNR. The
+six-method main-figure carotid comparison is produced by
+`conventional_baseline_comparison.py`.
 
 ### PICMUS experimental point-target PSFs
 
@@ -187,7 +197,26 @@ together with the central target near 37.5 mm quantify lateral variability.
 Use `--metadata-only` to validate the HDF5 dataset, phantom, and scan files on a
 CPU-only machine.
 
-### Conventional CF-DAS, MV, and F-DMAS comparison
+The full-phantom six-method reconstruction used for revised manuscript figure
+2 is:
+
+```bash
+python src/picmus_full_phantom_comparison.py \
+  --local-profile-summary results/generated/picmus_experimental_psf/picmus_experimental_psf_summary.json \
+  --local-profiles results/generated/picmus_experimental_psf/picmus_experimental_psf_profiles.npz \
+  --output-dir results/generated/picmus_full_phantom
+```
+
+It displays all seven nominal targets and combines the maps with a target-wise
+central-response diagnostic derived from directly beamformed fine profiles.
+DAS, CF-DAS, Receive-NSI and Angle-NSI use a 0.05 mm native lateral display
+grid; MV and DMAS use 0.15 and 0.10 mm native lateral grids, respectively, and
+are resampled only for the common overview. Quantitative profiles are measured
+directly and are not extracted from the resampled images.
+The full-phantom cache is staged, so a completed non-MV or MV reconstruction is
+retained if the later DMAS stage is interrupted.
+
+### CF-DAS, MV, and DMAS comparison
 
 The dedicated comparison preserves the established four-method studies and
 uses the same receive delays, linear interpolation, dynamic aperture, angle
@@ -199,16 +228,16 @@ python src/conventional_baseline_comparison.py \
 ```
 
 It reconstructs the representative central PICMUS target near 37.5 mm and
-both carotid views with DAS, receive CF-DAS, MV, F-DMAS, Receive-NSI, and
-Angle-NSI. The fixed baseline choices are:
+both carotid views with DAS, CF-DAS, MV, DMAS, Receive-NSI and Angle-NSI. The
+fixed baseline choices are:
 
-- receive CF is evaluated over the active receive aperture for each transmit
+- CF is evaluated over the active receive aperture for each transmit
   angle and applied to that complex DAS field before coherent compounding;
 - MV uses all overlapping subarrays with
   `L=floor(M_active/2)`, diagonal loading `trace(R)/(100L)`, no temporal
   averaging for the point target, and a 1.5-wavelength axial half-window for
   the diffuse carotid data;
-- F-DMAS uses delayed real RF, signed square-root pair products, a Kaiser FIR
+- DMAS uses delayed real RF, signed square-root pair products, a Kaiser FIR
   with stop/pass/pass/stop edges `(1.5, 1.75, 2.5, 2.75)*f0`, and Hilbert
   envelope detection. It is reconstructed at 0.02 mm axial spacing so the
   band near `2*f0` is below Nyquist.
@@ -228,7 +257,7 @@ python src/benchmark_conventional.py \
 
 It records synchronized wall-clock measurements and leading-order complexity
 for all six methods. Transfers, delay calculation, and interpolation are
-excluded equally; MV covariance/solve and F-DMAS filtering/Hilbert formation
+excluded equally; MV covariance/solve and DMAS filtering/Hilbert formation
 are included.
 
 ### Open-NSI MBTrace Doppler data
@@ -262,8 +291,9 @@ python scripts/run_revision_gpu.py --device 0
 ```
 
 The workflow writes a manifest after every step and reuses completed outputs on
-restart. It now includes the conventional-baseline reconstruction and timing
-stages. Add `--force` to repeat every stage. Its final strict validation step writes
+restart. It includes the six-method simulation, full PICMUS phantom,
+three-method MBTrace reconstruction, six-method carotid reconstruction and
+both timing boundaries. Add `--force` to repeat every stage. Its final strict validation step writes
 the publication tables, LaTeX result macros, and standardized figure files to
 `results/generated/revision/manuscript_assets/`. It refuses metadata-only PSF
 results, quick timing runs, incomplete benchmark cases, or fewer than 10
@@ -284,12 +314,10 @@ outputs and the post-run validation checklist.
   within the recorded complex64 tolerances.
 - The raw `sign(theta)` convention uses weights `-1`, `0`, and `+1`; `c` is
   therefore defined relative to the unnormalized reference sum `U`.
-- Angular CF-DAS uses `|sum_k B_k|^2 / (K sum_k |B_k|^2)` over the focused
-  per-angle image ensemble and multiplies that factor by the DAS envelope.
-- Reviewer-facing receive CF-DAS is distinct from angular CF-DAS: its
-  coherence ensemble is the active receive aperture within each transmit
-  angle.
-- F-DMAS pair products are evaluated through an exact algebraic reduction
+- CF-DAS uses `|sum_m x_m|^2 / (M_active sum_m |x_m|^2)` over the active
+  receive aperture for each transmit angle. It is ordinary CF, not a selected
+  GCF spectral band.
+- DMAS pair products are evaluated through an exact algebraic reduction
   that is unit-tested against the literal `i<j` double sum; it does not change
   the Matrone beamformer output. Independent lateral batches are validated
   line by line and recursively bisected if a CUDA/CuPy gather returns an empty

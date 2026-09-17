@@ -1,11 +1,11 @@
 # PMB major-revision handoff
 
-The repository contains the complete analysis program and immutable numerical
-record for the Physics in Medicine & Biology revision. The full publication
-run was completed on 17 September 2026 on the author's CUDA-capable NVIDIA
-GPU. The corrected CSV/JSON outputs and run/asset manifests are frozen under
-`results/reported/`; rerunning the workflow is optional reproducibility work,
-not a remaining publication step.
+The repository contains the analysis program and the frozen results already
+generated for the Physics in Medicine & Biology revision. One final GPU pass
+is required after the six-method figure reorganization: the new simulation,
+full PICMUS phantom and three-method MBTrace assets must be generated, then the
+manuscript assets must be rematerialized. Existing experimental-PSF, carotid
+and timing caches are reused when their signatures still match.
 
 ## 1. Install the environment
 
@@ -34,12 +34,15 @@ python scripts/run_revision_gpu.py --device 0
 ```
 
 The default workflow performs the analytic angular-null calculation,
-point-target simulation, MBTrace analysis, PICMUS carotid analysis,
-experimental PICMUS PSF study, transfer-aware timing suite, and manuscript
-asset generation. It also runs the reviewer-facing conventional receive
-CF-DAS/MV/F-DMAS comparison and its synchronized six-method timing benchmark.
+NSI sensitivity simulation, six-method point-target simulation, MBTrace
+analysis, PICMUS carotid analysis, experimental PICMUS PSF study, full-phantom
+six-method reconstruction, transfer-aware timing suite, and manuscript asset
+generation. It also runs the CF-DAS/MV/DMAS comparison and synchronized
+six-method timing benchmark.
 It is resumable; completed steps and valid conventional-comparison case caches
-are reused. Use `--force` only when an intentional full rerun is required.
+are reused. The full-phantom step also checkpoints its non-MV, MV and DMAS
+stages independently. Use `--force` only when an intentional full rerun is
+required.
 
 On the WSL installation for which the Windows-provided CUDA driver library is
 not selected automatically, keep the working override used during setup:
@@ -49,11 +52,11 @@ export LD_LIBRARY_PATH=/usr/lib/wsl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 python -c "import cupy as cp; print(cp.cuda.runtime.getDeviceCount()); print(cp.arange(3))"
 ```
 
-If all earlier revision steps are already complete, the shorter equivalent is:
+For the author's current cache state, run:
 
 ```bash
 python scripts/run_revision_gpu.py --device 0 \
-  --steps conventional-baselines,conventional-timing,manuscript-assets
+  --steps experimental-psf,simulation-six-method,mbtrace,picmus-full-phantom,conventional-baselines,conventional-timing,manuscript-assets
 ```
 
 The workflow validates cached timing settings before reuse and always rebuilds
@@ -71,8 +74,10 @@ tables when any of the following is true:
   repetitions;
 - a required primary or transfer-control benchmark case is missing, failed,
   or lacks one of the four comparison methods.
+- the six-method simulation or full-phantom result is metadata-only, quick,
+  incomplete, or omits any of DAS, CF-DAS, MV, DMAS, Receive-NSI or Angle-NSI;
 - the conventional comparison is metadata-only, quick, omits any of DAS,
-  receive CF-DAS, MV, F-DMAS, Receive-NSI, or Angle-NSI, or does not contain
+  CF-DAS, MV, DMAS, Receive-NSI or Angle-NSI, or does not contain
   the representative experimental PSF and both carotid views;
 - the six-method post-delay benchmark used fewer than 10 warmups or 50
   repetitions, or is marked non-publication-ready.
@@ -97,18 +102,19 @@ That directory must contain `revision_asset_manifest.json`,
 figures. The asset manifest records every source result and output file so that
 the numerical values inserted into the manuscripts remain traceable.
 
-The new reviewer-comparison assets are:
+The five main-figure assets are:
 
 ```text
-table_conventional_baselines.tex
-table_conventional_timing.tex
-table_conventional_parameters.tex
-reviewer_comparison/conventional_experimental_psf.png
-reviewer_comparison/conventional_experimental_psf_profiles.png
-reviewer_comparison/conventional_carotid_longitudinal.png
-reviewer_comparison/conventional_carotid_cross_section.png
-reviewer_comparison/conventional_timing.png
+figures/figure1_simulation_six_method.png
+figures/figure2_picmus_full_phantom_six_method.png
+figures/figure3_microbubble_power_doppler.png
+figures/figure4_carotid_six_method.png
+figures/figure5_computation_benchmark.png
 ```
+
+The same directory also contains `revision_results.tex`, the six-method
+tables, the target-wise PICMUS central-notch diagnostic and supplementary
+figures.
 
 The primary metric for the nonlinear carotid comparison is gCNR. CR and CNR
 are retained for completeness and are explicitly calculated on the linear
@@ -116,8 +122,9 @@ envelope; they should not replace gCNR in the main reviewer response.
 
 ## 5. Final manuscript checks
 
-The generated assets have been synchronized to both Overleaf projects. Before
-portal upload, retain the following final author-side checks:
+The revised LaTeX sources have been prepared for both Overleaf projects. After
+the final GPU run, replace each project's generated figures, tables and
+`revision_results.tex`, then perform these checks:
 
 1. compile the clean journal manuscript, highlighted manuscript,
    supplementary material, response letter, and arXiv manuscript;
@@ -129,8 +136,9 @@ portal upload, retain the following final author-side checks:
    shortening;
 6. run the journal revision-submission checklist before upload.
 
-The GPU run and final asset sync are complete. Regenerate the submission PDFs
-only if the manuscript text or metadata changes after this release.
+Do not submit while any red `GPU result pending` fallback is present. The
+current source compiles with those placeholders only to validate layout before
+the final GPU assets exist.
 
 ## 6. IOP upload package
 
