@@ -32,6 +32,12 @@ from mach.io.must import scan_grid
 from mach import wavefront
 from mach._vis import db_zero
 
+from nsi_core import (
+    angular_sign_weights,
+    coherence_factor_from_moments,
+    nsi_envelope,
+)
+
 # =============================================================================
 # 1. ROBUST PICMUS HDF5 LOADER
 # =============================================================================
@@ -351,6 +357,18 @@ def main():
     f_number = 1.0
     fc = 5.208333e6   # PICMUS L11-4v probe carrier frequency
     dc = 0.05     # NSI DC Offset for angular and conventional NSI (see Agarwal et al.)
+    c_values = tuple(sorted({
+        dc,
+        *(
+            float(value)
+            for value in os.environ.get(
+                "NSI_C_VALUES", "0.02,0.05,0.1,0.2"
+            ).split(",")
+            if value.strip()
+        ),
+    }))
+    if any(not np.isfinite(value) or value <= 0.0 for value in c_values):
+        raise ValueError("Every NSI c-sensitivity value must be finite and positive.")
     gcnr_num_bins = 100
     display_min_db = -60.0
     display_max_db = 0.0
@@ -365,9 +383,10 @@ def main():
     num_voxels = len(x) * len(z)
 
     csv_rows = []
+    c_sensitivity_rows = []
     json_summary = {
         "script": Path(__file__).name,
-        "schema_version": 1,
+        "schema_version": 2,
         "run_started_utc": run_started_utc,
         "metric_definitions": {
             "CR_dB": "20*log10(mean background / mean signal), linear envelope",
@@ -379,6 +398,7 @@ def main():
             "f_number": f_number,
             "carrier_frequency_hz": fc,
             "nsi_dc_offset": dc,
+            "nsi_c_sensitivity_values": list(c_values),
             "gcnr_histogram_bins": gcnr_num_bins,
             "grid_nx": nx,
             "grid_nz": nz,
@@ -389,6 +409,12 @@ def main():
             "display_min_db": display_min_db,
             "display_max_db": display_max_db,
             "angular_zero_mean_weights": "sign(angle), with broadside weight zero",
+            "angular_weight_normalization": (
+                "raw +/-1 sign convention; c is defined relative to U=sum_k B_k"
+            ),
+            "cf_das_definition": (
+                "angular CF=|sum_k B_k|^2/(K sum_k |B_k|^2), applied to DAS"
+            ),
             "interpolation": "linear between adjacent IQ samples",
         },
         "views": [],
@@ -423,12 +449,7 @@ def main():
 
         # 3. Angular NSI Apodization Vectors
         angles_deg = np.rad2deg(angles_rad)
-        if not np.allclose(angles_deg, -angles_deg[::-1], atol=1e-6):
-            raise ValueError("The steering sequence must be symmetric about broadside.")
-        apo_zm = np.sign(angles_deg).astype(np.float32)
-        apo_zm[np.isclose(angles_deg, 0.0, atol=1e-6)] = 0.0
-        if not np.isclose(apo_zm.sum(), 0.0):
-            raise ValueError("The steering angles must be symmetric about broadside.")
+        apo_zm, angular_weight_diagnostics = angular_sign_weights(angles_deg)
 
         apo_zm_gpu = cp.asarray(apo_zm, dtype=cp.float32)
 
@@ -510,6 +531,7 @@ def main():
         t_bf = time.perf_counter()
 
         comp_das = cp.zeros(num_voxels, dtype=cp.complex64)
+        comp_angle_power = cp.zeros(num_voxels, dtype=cp.float32)
         
         comp_zm_ang = cp.zeros(num_voxels, dtype=cp.complex64)
         
@@ -535,6 +557,7 @@ def main():
             contrib_zm = base * signMat_gpu
 
             comp_das += angle_result
+            comp_angle_power += cp.abs(angle_result) ** 2
             comp_zm_ang += angle_result * apo_zm_gpu[i]
             comp_u_conv += angle_result
             comp_zm_conv += contrib_zm.sum(axis=1)
@@ -543,17 +566,20 @@ def main():
         das_lin = cp.abs(comp_das.reshape(nx, nz)).get()
         bmode_das = db_zero(cp.abs(comp_das.reshape(nx, nz))).get()
 
+        angular_cf = coherence_factor_from_moments(
+            comp_das, comp_angle_power, num_angles, xp=cp
+        ).reshape(nx, nz)
+        cf_das_comp = angular_cf * cp.abs(comp_das.reshape(nx, nz))
+        cf_das_lin = cp.maximum(cf_das_comp, 1e-12).get()
+        bmode_cf_das = db_zero(cp.maximum(cf_das_comp, 1e-12)).get()
+
         # Only the uniform and zero-mean fields are independent:
         # I_DC1 = Z + cU and I_DC2 = -Z + cU.
-        comp_dc1_ang = comp_zm_ang + dc * comp_das
-        comp_dc2_ang = -comp_zm_ang + dc * comp_das
-        ang_nsi_comp = 0.5 * (cp.abs(comp_dc1_ang) + cp.abs(comp_dc2_ang)) - cp.abs(comp_zm_ang)
+        ang_nsi_comp = nsi_envelope(comp_das, comp_zm_ang, dc, xp=cp)
         ang_nsi_lin = cp.maximum(ang_nsi_comp.reshape(nx, nz), 1e-12).get()
         bmode_ang_nsi = db_zero(cp.maximum(ang_nsi_comp.reshape(nx, nz), 1e-12)).get()
 
-        comp_dc1_conv = comp_zm_conv + dc * comp_u_conv
-        comp_dc2_conv = -comp_zm_conv + dc * comp_u_conv
-        conv_nsi_comp = 0.5 * (cp.abs(comp_dc1_conv) + cp.abs(comp_dc2_conv)) - cp.abs(comp_zm_conv)
+        conv_nsi_comp = nsi_envelope(comp_u_conv, comp_zm_conv, dc, xp=cp)
         conv_nsi_lin = cp.maximum(conv_nsi_comp.reshape(nx, nz), 1e-12).get()
         bmode_conv_nsi = db_zero(cp.maximum(conv_nsi_comp.reshape(nx, nz), 1e-12)).get()
 
@@ -582,8 +608,9 @@ def main():
         output_png = output_dir / f"Fig_BMode_NSI_Comparison_{v['name']}.png"
         method_images = [
             ("DAS", bmode_das, das_lin),
-            ("Conventional NSI", bmode_conv_nsi, conv_nsi_lin),
-            ("Angular NSI", bmode_ang_nsi, ang_nsi_lin),
+            ("Angular CF-DAS", bmode_cf_das, cf_das_lin),
+            ("Receive-NSI", bmode_conv_nsi, conv_nsi_lin),
+            ("Angle-NSI", bmode_ang_nsi, ang_nsi_lin),
         ]
         view_metrics = []
         view_row_start = len(csv_rows)
@@ -671,6 +698,40 @@ def main():
                 "background_roi_db": background_db_stats,
             })
 
+        view_c_rows = []
+        for c_value in c_values:
+            for method_name, uniform_field, null_field in (
+                ("Receive-NSI", comp_u_conv, comp_zm_conv),
+                ("Angle-NSI", comp_das, comp_zm_ang),
+            ):
+                envelope_gpu = nsi_envelope(
+                    uniform_field, null_field, c_value, xp=cp
+                ).reshape(nx, nz)
+                envelope_linear = cp.maximum(envelope_gpu, 1e-12).get()
+                envelope_db = db_zero(cp.maximum(envelope_gpu, 1e-12)).get()
+                row = {
+                    "view": v["name"],
+                    "view_label": v["label"],
+                    "method": method_name,
+                    "c": float(c_value),
+                    "gcnr": finite_float_or_none(compute_gcnr(
+                        envelope_db[mask_signal],
+                        envelope_db[mask_bg],
+                        num_bins=gcnr_num_bins,
+                    )),
+                    "contrast_ratio_db": finite_float_or_none(
+                        compute_contrast_ratio(
+                            envelope_linear[mask_signal],
+                            envelope_linear[mask_bg],
+                        )
+                    ),
+                    "cnr": finite_float_or_none(compute_cnr(
+                        envelope_linear[mask_signal], envelope_linear[mask_bg]
+                    )),
+                }
+                c_sensitivity_rows.append(row)
+                view_c_rows.append(row)
+
         view_json = {
             "view": v["name"],
             "view_label": v["label"],
@@ -703,10 +764,12 @@ def main():
             },
             "beamforming_seconds": beamforming_seconds,
             "metrics": view_metrics,
+            "c_sensitivity": view_c_rows,
+            "angular_weight_diagnostics": angular_weight_diagnostics.to_dict(),
         }
 
-        # 8. Plot & Export 3-Panel Side-by-Side Comparison Figure
-        fig, axes = plt.subplots(1, 3, figsize=(15, 6.5), dpi=300)
+        # 8. Plot & Export 4-Panel Side-by-Side Comparison Figure
+        fig, axes = plt.subplots(1, 4, figsize=(19, 6.5), dpi=300)
 
         im0 = axes[0].imshow(bmode_das.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
         axes[0].set_title("(a) DAS", fontsize=11, fontweight="bold")
@@ -714,15 +777,20 @@ def main():
         axes[0].set_ylabel("z [cm]")
         fig.colorbar(im0, ax=axes[0], label="Intensity [dB]", fraction=0.046, pad=0.04)
 
-        im1 = axes[1].imshow(bmode_conv_nsi.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
-        axes[1].set_title("(b) Conventional NSI", fontsize=11, fontweight="bold")
+        im1 = axes[1].imshow(bmode_cf_das.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
+        axes[1].set_title("(b) Angular CF-DAS", fontsize=11, fontweight="bold")
         axes[1].set_xlabel("x [cm]")
         fig.colorbar(im1, ax=axes[1], label="Intensity [dB]", fraction=0.046, pad=0.04)
 
-        im2 = axes[2].imshow(bmode_ang_nsi.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
-        axes[2].set_title("(c) Angular NSI", fontsize=11, fontweight="bold")
+        im2 = axes[2].imshow(bmode_conv_nsi.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
+        axes[2].set_title("(c) Receive-NSI", fontsize=11, fontweight="bold")
         axes[2].set_xlabel("x [cm]")
         fig.colorbar(im2, ax=axes[2], label="Intensity [dB]", fraction=0.046, pad=0.04)
+
+        im3 = axes[3].imshow(bmode_ang_nsi.T, cmap="gray", vmin=display_min_db, vmax=display_max_db, extent=extent_cm, aspect="equal")
+        axes[3].set_title("(d) Angle-NSI", fontsize=11, fontweight="bold")
+        axes[3].set_xlabel("x [cm]")
+        fig.colorbar(im3, ax=axes[3], label="Intensity [dB]", fraction=0.046, pad=0.04)
 
         #fig.suptitle(f"PICMUS {v['label']} View - Beamforming Comparison", fontsize=13, fontweight="bold")
         
@@ -737,7 +805,7 @@ def main():
 
         fig.savefig(output_png, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"Saved 3-panel comparison figure: {output_png}")
+        print(f"Saved 4-panel comparison figure: {output_png}")
 
         view_processing_seconds = time.perf_counter() - t_view_start
         for row in csv_rows[view_row_start:]:
@@ -759,11 +827,74 @@ def main():
     total_execution_seconds = time.perf_counter() - t_script_start
     json_summary["run_completed_utc"] = datetime.now(timezone.utc).isoformat()
     json_summary["total_execution_seconds"] = total_execution_seconds
+    json_summary["c_sensitivity"] = c_sensitivity_rows
     csv_path, json_path = save_metric_results(output_dir, csv_rows, json_summary)
+
+    c_csv_path = output_dir / "bmode_nsi_c_sensitivity.csv"
+    with c_csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(c_sensitivity_rows[0]))
+        writer.writeheader()
+        writer.writerows(c_sensitivity_rows)
+    c_json_path = output_dir / "bmode_nsi_c_sensitivity.json"
+    with c_json_path.open("w", encoding="utf-8") as stream:
+        json.dump(
+            {
+                "primary_c": dc,
+                "c_values": list(c_values),
+                "raw_sign_weight_convention": True,
+                "rows": c_sensitivity_rows,
+            },
+            stream,
+            indent=2,
+            allow_nan=False,
+        )
+        stream.write("\n")
+
+    c_figure_path = output_dir / "bmode_nsi_c_sensitivity.png"
+    figure_c, axes_c = plt.subplots(1, 3, figsize=(10.8, 3.2), dpi=180)
+    metrics = [
+        ("gcnr", "gCNR"),
+        ("contrast_ratio_db", "CR [dB]"),
+        ("cnr", "CNR"),
+    ]
+    styles = {
+        "Receive-NSI": ("tab:red", "s", "--"),
+        "Angle-NSI": ("tab:blue", "^", "-."),
+    }
+    for axis, (metric_key, metric_label) in zip(axes_c, metrics):
+        for view_name in ("CL", "CC"):
+            for method_name, (color, marker, linestyle) in styles.items():
+                selected = [
+                    row for row in c_sensitivity_rows
+                    if row["view"] == view_name and row["method"] == method_name
+                ]
+                axis.plot(
+                    [row["c"] for row in selected],
+                    [row[metric_key] for row in selected],
+                    color=color,
+                    marker=marker,
+                    linestyle=linestyle if view_name == "CL" else ":",
+                    label=f"{method_name}, {view_name}",
+                )
+        axis.set(xlabel="NSI offset c", ylabel=metric_label)
+        axis.grid(True, alpha=0.25)
+    handles, labels = axes_c[-1].get_legend_handles_labels()
+    figure_c.legend(
+        handles, labels, loc="upper center", ncol=2, frameon=False,
+        bbox_to_anchor=(0.5, 1.08), fontsize=8,
+    )
+    figure_c.tight_layout(rect=(0, 0, 1, 0.88))
+    figure_c.savefig(c_figure_path, dpi=300, bbox_inches="tight")
+    plt.close(figure_c)
+
+    for path in (c_csv_path, c_json_path, c_figure_path):
+        if not path.is_file() or path.stat().st_size == 0:
+            raise OSError(f"Expected c-sensitivity output was not written: {path}")
 
     print(f"\nTotal execution time: {total_execution_seconds:.2f} seconds.")
     print(f"Final metrics CSV: {csv_path}")
     print(f"Final structured results JSON: {json_path}")
+    print(f"c-sensitivity outputs: {c_csv_path}, {c_json_path}, {c_figure_path}")
 
 
 if __name__ == "__main__":

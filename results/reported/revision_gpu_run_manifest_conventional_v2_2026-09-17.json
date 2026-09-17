@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-09-17T09:08:18.542526+00:00",
+  "device": "0",
+  "data_root": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data",
+  "output_root": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision",
+  "requested_steps": [
+    "conventional-baselines",
+    "conventional-timing",
+    "manuscript-assets"
+  ],
+  "steps": [
+    {
+      "name": "conventional-baselines",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/src/conventional_baseline_comparison.py",
+        "--resolution-dataset",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/resolution_distorsion/resolution_distorsion_expe_dataset_rf.hdf5",
+        "--resolution-phantom",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/resolution_distorsion/resolution_distorsion_expe_phantom.hdf5",
+        "--carotid-long",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/in_vivo/carotid_long/carotid_long_expe_dataset_rf.hdf5",
+        "--carotid-cross",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/data/PICMUS/in_vivo/carotid_cross/carotid_cross_expe_dataset_rf.hdf5",
+        "--output-dir",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/conventional_baselines",
+        "--device",
+        "0"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/conventional_baselines/conventional_baseline_summary.json",
+      "started_utc": "2026-09-17T09:08:18.545037+00:00",
+      "status": "completed",
+      "duration_seconds": 11.169553764004377
+    },
+    {
+      "name": "conventional-timing",
+      "status": "reused",
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/conventional_timing/conventional_timing_summary.json"
+    },
+    {
+      "name": "manuscript-assets",
+      "command": [
+        "/home/hjleroy/.venvs/angle-domain-nsi/bin/python",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/scripts/materialize_revision_assets.py",
+        "--results-root",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision",
+        "--output-dir",
+        "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/manuscript_assets"
+      ],
+      "expected_output": "/home/hjleroy/projects/ultrafast-imaging/angle_domain_NSI/results/generated/revision/manuscript_assets/revision_asset_manifest.json",
+      "started_utc": "2026-09-17T09:08:29.715790+00:00",
+      "status": "completed",
+      "duration_seconds": 0.07409787099459209
+    }
+  ],
+  "completed_utc": "2026-09-17T09:08:29.790271+00:00",
+  "all_requested_steps_completed": true
+}

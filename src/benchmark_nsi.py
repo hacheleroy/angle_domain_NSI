@@ -67,8 +67,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from nsi_core import (
+    angular_sign_weights,
+    coherence_factor_from_moments,
+    nsi_envelope as shared_nsi_envelope,
+)
+
 
 METHOD_DAS = "DAS / coherent compounding"
+METHOD_CF = "Angular CF-DAS"
 METHOD_RECEIVE = "Conventional NSI (two fields)"
 METHOD_ANGLE_STREAM = "Angular NSI (streaming)"
 METHOD_ANGLE_STORED = "Angular NSI (stored angle stack)"
@@ -76,6 +83,7 @@ METHOD_NAIVE = "Conventional NSI (naive three fields)"
 
 METHOD_STYLES = {
     METHOD_DAS: ("tab:purple", "o", "-"),
+    METHOD_CF: ("tab:green", "P", "-"),
     METHOD_RECEIVE: ("tab:red", "s", "--"),
     METHOD_ANGLE_STREAM: ("tab:blue", "^", "-."),
     METHOD_ANGLE_STORED: ("tab:cyan", "D", ":"),
@@ -98,6 +106,17 @@ def parse_args() -> argparse.Namespace:
                 / "generated"
                 / "timing",
             )
+        ),
+    )
+    parser.add_argument(
+        "--receive-input-mode",
+        choices=("device-weighted", "host-stacked"),
+        default="device-weighted",
+        help=(
+            "device-weighted transfers the same raw IQ bytes as DAS/Angle-NSI "
+            "and constructs [U,Z_e] on device inside the timed region; "
+            "host-stacked reproduces the earlier two-frame API path and "
+            "transfers twice the channel bytes."
         ),
     )
     parser.add_argument(
@@ -145,6 +164,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--seed", type=int, default=20260814)
+    parser.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=5000,
+        help="Deterministic bootstrap resamples for the median 95%% CI.",
+    )
+    parser.add_argument(
+        "--configuration-label",
+        default="baseline",
+        help="Label propagated to every CSV/JSON row by scaling sweeps.",
+    )
     parser.add_argument("--angles", type=int, default=17)
     parser.add_argument("--angle-span-deg", type=float, default=8.0)
     parser.add_argument("--elements", type=int, default=128)
@@ -236,6 +266,8 @@ def validate_args(args: argparse.Namespace) -> None:
         or args.validation_l2_error_fraction <= 0.0
     ):
         raise ValueError("Every numerical-validation tolerance must be positive.")
+    if args.bootstrap_resamples < 0:
+        raise ValueError("--bootstrap-resamples must be nonnegative.")
     if not args.x_min_mm < args.x_max_mm or not args.z_min_mm < args.z_max_mm:
         raise ValueError("Grid limits must be strictly increasing.")
 
@@ -434,14 +466,19 @@ def prepare_channel_data(
     uniform_host = [
         np.ascontiguousarray(iq_angle.T[:, :, None]) for iq_angle in iq_host
     ]
-    receive_pair_host = [
-        np.ascontiguousarray(
-            np.stack([iq_angle, iq_angle * receive_null], axis=-1).transpose(
-                1, 0, 2
+    receive_input_mode = getattr(args, "receive_input_mode", "device-weighted")
+    receive_pair_host = (
+        [
+            np.ascontiguousarray(
+                np.stack([iq_angle, iq_angle * receive_null], axis=-1).transpose(
+                    1, 0, 2
+                )
             )
-        )
-        for iq_angle in iq_host
-    ]
+            for iq_angle in iq_host
+        ]
+        if receive_input_mode == "host-stacked"
+        else None
+    )
     naive_host = (
         [
             np.ascontiguousarray(
@@ -463,7 +500,11 @@ def prepare_channel_data(
         uniform_gpu = receive_pair_gpu = naive_gpu = None
     else:
         uniform_gpu = [cp.asarray(item) for item in uniform_host]
-        receive_pair_gpu = [cp.asarray(item) for item in receive_pair_host]
+        receive_pair_gpu = (
+            [cp.asarray(item) for item in receive_pair_host]
+            if receive_pair_host is not None
+            else None
+        )
         naive_gpu = (
             [cp.asarray(item) for item in naive_host]
             if args.include_naive_reference
@@ -476,12 +517,28 @@ def prepare_channel_data(
         "uniform_gpu": uniform_gpu,
         "receive_pair_gpu": receive_pair_gpu,
         "naive_gpu": naive_gpu,
+        "receive_null_gpu": cp.asarray(
+            receive_null.reshape(args.elements, 1, 1), dtype=cp.float32
+        ),
     }
 
 
 def channel_for_angle(
     prepared: dict[str, Any], kind: str, index: int, args: argparse.Namespace, cp: Any
 ) -> Any:
+    if (
+        kind == "receive_pair"
+        and getattr(args, "receive_input_mode", "device-weighted")
+        == "device-weighted"
+    ):
+        raw = (
+            cp.asarray(prepared["uniform_host"][index])
+            if input_transfer_enabled(args.transfers)
+            else prepared["uniform_gpu"][index]
+        )
+        return cp.concatenate(
+            (raw, raw * prepared["receive_null_gpu"]), axis=2
+        )
     host_key = f"{kind}_host"
     gpu_key = f"{kind}_gpu"
     if input_transfer_enabled(args.transfers):
@@ -490,11 +547,54 @@ def channel_for_angle(
 
 
 def nsi_envelope(cp: Any, uniform: Any, null: Any, dc_offset: float) -> Any:
-    plus = null + dc_offset * uniform
-    minus = -null + dc_offset * uniform
-    return cp.maximum(
-        0.5 * (cp.abs(plus) + cp.abs(minus)) - cp.abs(null), 0.0
+    """Backward-compatible wrapper around the shared two-field definition."""
+
+    return shared_nsi_envelope(
+        uniform, null, dc_offset, xp=cp, clip_nonnegative=True
     )
+
+
+def transfer_byte_accounting(
+    method: str,
+    args: argparse.Namespace,
+    iq_host: np.ndarray,
+) -> dict[str, int]:
+    """Return exact timed transfer bytes implied by one reconstruction call."""
+
+    raw_channel_bytes = int(iq_host.nbytes)
+    channel_h2d = 0
+    if input_transfer_enabled(args.transfers):
+        if method == METHOD_RECEIVE and args.receive_input_mode == "host-stacked":
+            channel_h2d = 2 * raw_channel_bytes
+        elif method == METHOD_NAIVE:
+            channel_h2d = 3 * raw_channel_bytes
+        else:
+            channel_h2d = raw_channel_bytes
+
+    # Geometry is rebuilt and copied once per timed reconstruction when that
+    # scope is selected: receive coordinates, scan coordinates, and one
+    # float32 transmit-arrival vector per angle.
+    geometry_h2d = 0
+    if args.scope == "reconstruction":
+        scan_point_count = int(args.nx * args.nz)
+        geometry_h2d = int(
+            args.elements * 3 * np.dtype(np.float32).itemsize
+            + scan_point_count * 3 * np.dtype(np.float32).itemsize
+            + args.angles * scan_point_count * np.dtype(np.float32).itemsize
+        )
+    output_d2h = (
+        int(args.nx * args.nz * np.dtype(np.float32).itemsize)
+        if output_transfer_enabled(args.transfers)
+        else 0
+    )
+    return {
+        "raw_channel_input_bytes": raw_channel_bytes,
+        "timed_channel_h2d_bytes": channel_h2d,
+        "timed_geometry_h2d_bytes": geometry_h2d,
+        "timed_total_h2d_bytes": channel_h2d + geometry_h2d,
+        "timed_output_d2h_bytes": output_d2h,
+        "timed_total_transfer_bytes": channel_h2d + geometry_h2d + output_d2h,
+    }
 
 
 def output_difference_metrics(
@@ -662,7 +762,12 @@ def execute_method(
             0.0,
         )
 
-    elif method in (METHOD_ANGLE_STREAM, METHOD_ANGLE_STORED, METHOD_DAS):
+    elif method in (
+        METHOD_ANGLE_STREAM,
+        METHOD_ANGLE_STORED,
+        METHOD_DAS,
+        METHOD_CF,
+    ):
         if method == METHOD_ANGLE_STREAM:
             angular_null_sum = cp.zeros(shape, dtype=cp.complex64)
             angle_stack = None
@@ -673,6 +778,9 @@ def execute_method(
             angular_null_sum = None
         else:
             angle_stack = angular_null_sum = None
+        angle_power_sum = (
+            cp.zeros(shape, dtype=cp.float32) if method == METHOD_CF else None
+        )
 
         for index in range(angles_deg.size):
             result = beamform(
@@ -696,6 +804,8 @@ def execute_method(
                 uniform_sum += image
                 if method == METHOD_ANGLE_STREAM:
                     angular_null_sum += angular_weights_gpu[index] * image
+                elif method == METHOD_CF:
+                    angle_power_sum += cp.abs(image) ** 2
 
         if method == METHOD_ANGLE_STORED:
             uniform_sum = cp.sum(angle_stack, axis=2)
@@ -703,13 +813,20 @@ def execute_method(
                 angle_stack * angular_weights_gpu.reshape(1, 1, -1), axis=2
             )
 
-        envelope = (
-            cp.abs(uniform_sum)
-            if method == METHOD_DAS
-            else nsi_envelope(
+        if method == METHOD_DAS:
+            envelope = cp.abs(uniform_sum)
+        elif method == METHOD_CF:
+            factor = coherence_factor_from_moments(
+                uniform_sum,
+                angle_power_sum,
+                int(angles_deg.size),
+                xp=cp,
+            )
+            envelope = factor * cp.abs(uniform_sum)
+        else:
+            envelope = nsi_envelope(
                 cp, uniform_sum, angular_null_sum, args.dc_offset
             )
-        )
     else:
         raise KeyError(method)
 
@@ -718,9 +835,42 @@ def execute_method(
     return envelope
 
 
-def summarize_times(method: str, times_s: list[float]) -> dict[str, Any]:
+def bootstrap_median_ci_ms(
+    times_s: list[float],
+    *,
+    resamples: int = 5000,
+    confidence: float = 0.95,
+    seed: int = 20260814,
+) -> tuple[float | None, float | None]:
+    """Deterministic percentile bootstrap interval for the median latency."""
+
+    values = np.asarray(times_s, dtype=float)
+    if values.size == 0 or resamples <= 0:
+        return None, None
+    if not 0.0 < confidence < 1.0:
+        raise ValueError("confidence must lie strictly between zero and one.")
+    rng = np.random.default_rng(seed)
+    indices = rng.integers(0, values.size, size=(resamples, values.size))
+    boot = np.median(values[indices], axis=1) * 1e3
+    alpha = 100.0 * (1.0 - confidence) / 2.0
+    lower, upper = np.percentile(boot, [alpha, 100.0 - alpha])
+    return float(lower), float(upper)
+
+
+def summarize_times(
+    method: str,
+    times_s: list[float],
+    *,
+    bootstrap_resamples: int = 0,
+    bootstrap_seed: int = 20260814,
+) -> dict[str, Any]:
     values = np.asarray(times_s, dtype=float)
     q1, median, q3 = np.percentile(values, [25.0, 50.0, 75.0])
+    ci_lower, ci_upper = bootstrap_median_ci_ms(
+        times_s,
+        resamples=bootstrap_resamples,
+        seed=bootstrap_seed,
+    )
     return {
         "method": method,
         "n": int(values.size),
@@ -734,6 +884,9 @@ def summarize_times(method: str, times_s: list[float]) -> dict[str, Any]:
         else 0.0,
         "minimum_ms": float(np.min(values) * 1e3),
         "maximum_ms": float(np.max(values) * 1e3),
+        "median_95ci_lower_ms": ci_lower,
+        "median_95ci_upper_ms": ci_upper,
+        "bootstrap_resamples": int(bootstrap_resamples),
     }
 
 
@@ -810,11 +963,7 @@ def main() -> None:
 
     cp.cuda.Device(0).use()
     angles_deg = make_angles(args.angles, args.angle_span_deg)
-    angular_weights = np.sign(angles_deg).astype(np.float32)
-    if not np.isclose(float(np.sum(angular_weights)), 0.0, atol=1e-7):
-        raise RuntimeError("Angular-null weights do not sum to zero.")
-    if angular_weights[angles_deg.size // 2] != 0.0:
-        raise RuntimeError("Broadside must have zero angular weight.")
+    angular_weights, weight_diagnostics = angular_sign_weights(angles_deg)
     angular_weights_gpu = cp.asarray(angular_weights)
 
     iq_host, data_source = load_or_generate_iq(args, angles_deg)
@@ -834,7 +983,7 @@ def main() -> None:
         geometry_builder() if args.scope == "kernel" else None
     )
 
-    methods = [METHOD_DAS, METHOD_RECEIVE]
+    methods = [METHOD_DAS, METHOD_CF, METHOD_RECEIVE]
     if args.angle_storage_mode in ("streaming", "both"):
         methods.append(METHOD_ANGLE_STREAM)
     if args.angle_storage_mode in ("stored", "both"):
@@ -927,6 +1076,15 @@ def main() -> None:
             times_by_method[method].append(float(elapsed))
             raw_rows.append(
                 {
+                    "configuration_label": args.configuration_label,
+                    "scope": args.scope,
+                    "transfers": args.transfers,
+                    "receive_input_mode": args.receive_input_mode,
+                    "angles": args.angles,
+                    "elements": args.elements,
+                    "samples": args.samples,
+                    "nx": args.nx,
+                    "nz": args.nz,
                     "repetition": repetition,
                     "order_within_repetition": order_index,
                     "method": method,
@@ -938,7 +1096,13 @@ def main() -> None:
         print(f"Completed synchronized repetition {repetition}/{args.repetitions}")
 
     summaries = [
-        summarize_times(method, times_by_method[method]) for method in methods
+        summarize_times(
+            method,
+            times_by_method[method],
+            bootstrap_resamples=args.bootstrap_resamples,
+            bootstrap_seed=args.seed + method_index,
+        )
+        for method_index, method in enumerate(methods)
     ]
     das_median = summaries[0]["median_ms"]
     das_mean = summaries[0]["mean_ms"]
@@ -947,6 +1111,33 @@ def main() -> None:
         row["das_over_method_median"] = float(das_median / row["median_ms"])
         row["ratio_to_das_mean"] = float(row["mean_ms"] / das_mean)
         row["das_over_method_mean"] = float(das_mean / row["mean_ms"])
+        row["configuration_label"] = args.configuration_label
+        row["scope"] = args.scope
+        row["transfers"] = args.transfers
+        row["receive_input_mode"] = args.receive_input_mode
+        row.update(transfer_byte_accounting(row["method"], args, iq_host))
+
+    summary_by_method = {row["method"]: row for row in summaries}
+    receive_median = summary_by_method[METHOD_RECEIVE]["median_ms"]
+    angle_keys = [
+        key
+        for key in (METHOD_ANGLE_STREAM, METHOD_ANGLE_STORED)
+        if key in summary_by_method
+    ]
+    pairwise_speedups = {
+        key: {
+            "receive_nsi_median_ms": receive_median,
+            "angle_nsi_median_ms": summary_by_method[key]["median_ms"],
+            "angle_lower_latency_fraction": float(
+                (receive_median - summary_by_method[key]["median_ms"])
+                / receive_median
+            ),
+            "angle_speedup_factor": float(
+                receive_median / summary_by_method[key]["median_ms"]
+            ),
+        }
+        for key in angle_keys
+    }
 
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -962,7 +1153,7 @@ def main() -> None:
         args.warmups >= 10 and args.repetitions >= 50 and not args.quick
     )
     metadata = {
-        "benchmark_version": "2",
+        "benchmark_version": "3",
         "publication_ready_minimum_repetition_check": publication_ready,
         "warning": None
         if publication_ready
@@ -979,6 +1170,18 @@ def main() -> None:
             "final_image_device_to_host": output_transfer_enabled(args.transfers),
             "scan_grid_and_transmit_arrivals": args.scope == "reconstruction",
         },
+        "transfer_accounting": {
+            "definition": (
+                "Exact logical payload bytes copied within each timed method; "
+                "protocol/driver overhead is not inferred."
+            ),
+            "per_method": {
+                row["method"]: transfer_byte_accounting(
+                    row["method"], args, iq_host
+                )
+                for row in summaries
+            },
+        },
         "excluded_common_steps": [
             "RF acquisition or simulation",
             "RF-to-IQ demodulation",
@@ -987,12 +1190,22 @@ def main() -> None:
         ],
         "angle_image_storage": args.angle_storage_mode,
         "host_buffer_preparation": (
-            "Uniform, receive-apodized and optional naive host buffers are "
-            "prepared once before timing; selected host-to-device transfers "
-            "are included according to --transfers."
+            "Uniform and optional host-stacked/naive buffers are prepared once "
+            "before timing; their construction is not timed."
         ),
         "receive_nsi_implementation": (
-            "one beamformer call per angle with simultaneous U and Z_e outputs"
+            "one beamformer call per angle with simultaneous U and Z_e outputs; "
+            + (
+                "raw IQ is transferred once and the pair is formed on device "
+                "inside the timed region"
+                if args.receive_input_mode == "device-weighted"
+                else "the two-frame host buffer is transferred inside the timed region"
+            )
+        ),
+        "receive_input_mode": args.receive_input_mode,
+        "cf_das_definition": (
+            "Angular coherence factor |sum_k B_k|^2 / "
+            "(K sum_k |B_k|^2), multiplied by |sum_k B_k|"
         ),
         "naive_three_field_reference_included": bool(
             args.include_naive_reference
@@ -1023,6 +1236,8 @@ def main() -> None:
             "warmups": args.warmups,
             "repetitions": args.repetitions,
             "randomized_interleaving_seed": args.seed,
+            "configuration_label": args.configuration_label,
+            "bootstrap_resamples": args.bootstrap_resamples,
             "image_grid": {
                 "nx": args.nx,
                 "nz": args.nz,
@@ -1035,10 +1250,7 @@ def main() -> None:
             "angles_deg": [float(value) for value in angles_deg],
             "angle_count": int(angles_deg.size),
             "total_angle_span_deg": args.angle_span_deg,
-            "broadside_angular_weight": float(
-                angular_weights[angles_deg.size // 2]
-            ),
-            "angular_weight_sum": float(np.sum(angular_weights)),
+            "angular_weight_diagnostics": weight_diagnostics.to_dict(),
             "f_number": args.f_number,
             "dc_offset": args.dc_offset,
             "centre_frequency_mhz": args.centre_frequency_mhz,
@@ -1061,6 +1273,7 @@ def main() -> None:
             "mach_beamform": version_or_none(("mach-beamform", "mach")),
         },
         "summary": summaries,
+        "pairwise_speedups": pairwise_speedups,
         "numerical_checks": numerical_checks,
         "method_order": methods,
         "output_files": {

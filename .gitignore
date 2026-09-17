@@ -9,10 +9,13 @@ results/generated/
 # locally. The MBTrace .npy cache is created beside the .mat file.
 data/PICMUS/
 data/Open-NSI/
+data/downloads/
+data/dataset_manifest.json
 data/**/*.mat
 data/**/*.hdf5
 data/**/*.h5
 data/**/*.npy
+data/**/*.part
 
 # --- Python ------------------------------------------------------------------
 __pycache__/
@@ -25,6 +28,7 @@ dist/
 
 # --- Virtual environments -----------------------------------------------------
 .venv/
+.status-venv/
 venv/
 env/
 
@@ -32,6 +36,7 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.matplotlib/
 .coverage
 htmlcov/
 

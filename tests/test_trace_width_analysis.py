@@ -13,9 +13,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from trace_width_analysis import (
     PeakWidth,
     analyse_three_profiles,
+    diagnose_peak_displacements,
     match_three_methods,
+    matching_tolerance_sweep,
     measure_peak_widths,
     save_analysis_outputs,
+    save_concordance_outputs,
 )
 
 
@@ -99,6 +102,31 @@ class TestTraceWidthAnalysis(unittest.TestCase):
             )
             self.assertTrue(Path(csv_path).is_file())
             self.assertTrue(Path(json_path).is_file())
+            extra = save_concordance_outputs(analysis, directory)
+            self.assertTrue(all(path.is_file() for path in extra.values()))
+
+    def test_reported_mbtrace_tolerance_curve_is_reproduced(self):
+        das = [
+            _record(x) for x in [-5.0924, -3.7815, -2.1681, 2.5714, 3.0756, 3.8824]
+        ]
+        angle = [
+            _record(x)
+            for x in [-4.8908, -3.5798, -1.8655, 2.2689, 2.5714, 3.0756, 3.9832]
+        ]
+        rows = matching_tolerance_sweep(das, angle, [0.15, 0.21, 0.31])
+        self.assertEqual([row["matched_peak_count"] for row in rows], [3, 5, 6])
+        self.assertEqual(rows[0]["matched_fraction"], 0.5)
+        self.assertEqual(rows[-1]["matched_fraction"], 1.0)
+
+        diagnosis = diagnose_peak_displacements(
+            das, angle, matching_tolerance_mm=0.15, tracking_radius_mm=0.35
+        )
+        statuses = [record.status for record in diagnosis]
+        self.assertEqual(statuses.count("matched_within_tolerance"), 3)
+        self.assertEqual(
+            statuses.count("displaced_beyond_matching_tolerance"), 3
+        )
+        self.assertNotIn("no_peak_within_tracking_radius", statuses)
 
 
 if __name__ == "__main__":

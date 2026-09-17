@@ -27,3 +27,27 @@ Reported subdirectories map to scripts as follows:
 | `timing/` | `src/benchmark_nsi.py` |
 | `bmode/` | `src/bmode_picmus.py` |
 | `doppler/` | `src/doppler_mbtrace.py` |
+| `conventional_baselines/` | `src/conventional_baseline_comparison.py` |
+| `conventional_timing/` | `src/benchmark_conventional.py` |
+
+The conventional-baseline and conventional-timing outputs from the corrected
+publication run are part of the immutable `reported/` snapshot. Their JSON
+files record the exact CF, MV, and F-DMAS definitions, the pinned USTB
+reference commit, fine F-DMAS axial sampling, exact lateral-batch validation,
+GPU/software versions, and the publication-readiness checks. The reported
+snapshot contains CSV/JSON evidence and manifests rather than the large cache
+arrays or duplicate manuscript figures.
+
+The GPU workflow was completed in two phases. The core-results archive was
+`nsi_revision_results_2026-09-16.tar.gz` (SHA-256
+`50034a3e46098fccff72b2ce3ce29ef222d5f5a939729ed5839aca60fbd66742`),
+recorded by `revision_gpu_run_manifest_core_2026-09-16.json`. The corrected
+conventional-comparison archive was
+`nsi_conventional_results_2026-09-17-v2.tar.gz` (SHA-256
+`78c52160f4b77d3ed945c2bc00a960e6268db6af35206c1c7c5e0629cca49916`),
+recorded by
+`revision_gpu_run_manifest_conventional_v2_2026-09-17.json`. Together these
+manifests record completion of every requested workflow step, while
+`revision_asset_manifest.json` records the final clean publication gate.
+Absolute paths in these records document the author's run environment; they
+are provenance, not required local paths for a rerun.

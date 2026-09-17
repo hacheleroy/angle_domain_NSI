@@ -5,6 +5,14 @@ These scripts reproduce the synchronized timing benchmark and robustness analyse
 ## Files
 
 - `src/benchmark_nsi.py`: synchronized timing comparison
+- `src/benchmark_scaling.py`: matrix/element/angle scaling and transfer controls
+- `src/picmus_experimental_psf.py`: measured multi-position PICMUS PSFs
+- `src/adaptive_beamforming.py`: shared receive CF, Capon MV, and F-DMAS
+  primitives (NumPy/CuPy)
+- `src/conventional_baseline_comparison.py`: representative six-method
+  experimental PSF and carotid comparison
+- `src/benchmark_conventional.py`: synchronized six-method post-delay timing
+- `src/angular_null_theory.py`: paired-angle small-angle field model
 - `src/simulation_robustness.py`: angular, perturbation, spatial-PSF and
   two-target tests
 - `tests/test_validation_helpers.py`: CPU-only tests of the measurement helpers
@@ -27,6 +35,10 @@ python src/benchmark_nsi.py \
 python src/simulation_robustness.py \
   --quick \
   --output-dir results/generated/robustness_quick
+
+python src/benchmark_conventional.py \
+  --quick \
+  --output-dir results/generated/conventional_timing_quick
 ```
 
 The two GPU scripts require the same CuPy, PyMUST and mach-beamform environment
@@ -42,6 +54,7 @@ python src/benchmark_nsi.py \
   --repetitions 50 \
   --scope reconstruction \
   --transfers both \
+  --receive-input-mode device-weighted \
   --angle-storage-mode both \
   --output-dir results/generated/timing
 ```
@@ -49,13 +62,21 @@ python src/benchmark_nsi.py \
 This measures:
 
 1. standard DAS/coherent compounding
-2. receive-domain NSI from the two independent fields `U` and `Z_e`
-3. angle-domain NSI from `U` and `Z_theta`
+2. angular CF-DAS from the per-angle image ensemble
+3. Receive-NSI from the two independent fields `U` and `Z_e`
+4. Angle-NSI from `U` and `Z_theta`
 
-The angle-domain method is reported both with streaming accumulation and with a
+Angle-NSI is reported both with streaming accumulation and with a
 retained per-angle stack. The receive benchmark uses two simultaneous
 beamformer outputs per angle; it is not the old three-independent-pass
 implementation.
+
+With the default `--receive-input-mode device-weighted`, every optimized method
+transfers the same raw complex-IQ payload and the receive pair is formed on the
+GPU inside the timed region. `--receive-input-mode host-stacked` reproduces the
+older API condition in which Receive-NSI transfers twice the channel bytes.
+Every summary row records exact logical input, geometry, output, and total
+transfer bytes.
 
 `--scope reconstruction` includes construction and GPU transfer of the scan
 grid and transmit-arrival arrays in every timed execution. `--transfers both`
@@ -105,7 +126,102 @@ The generated files include:
 The JSON records GPU/CPU models, CUDA and package versions, precision, grid,
 element and angle counts, transfer scope and image-storage policy.
 
-## 3. Full robustness study 
+## 3. Reviewer-requested conventional beamformers
+
+Validate the three PICMUS inputs without a GPU:
+
+```bash
+python src/conventional_baseline_comparison.py --metadata-only
+```
+
+Run the publication comparison on the GPU:
+
+```bash
+python src/conventional_baseline_comparison.py \
+  --output-dir results/generated/conventional_baselines
+```
+
+The comparison uses the full 75-angle acquisition unless `--angle-count` is
+explicitly supplied. Any reduced-angle or `--quick` run is marked
+non-publication-ready. Completed PSF, longitudinal carotid, and cross-sectional
+carotid reconstructions have independent signature-validated caches.
+
+The implementation invariants are:
+
+1. receive CF-DAS uses
+   `|sum_m x_m|^2/(M_active*sum_m |x_m|^2)` per pixel and transmit angle;
+2. MV uses analytic delayed channels, every overlapping contiguous subarray,
+   `L=floor(M_active/2)`, loading `trace(R)/(100L)`, and a batched linear solve
+   rather than an explicit inverse;
+3. F-DMAS uses real delayed RF and
+   `sign(s_i*s_j)*sqrt(abs(s_i*s_j))` for all `i<j`, followed by the fixed
+   Kaiser band-pass around `2*f0` and an analytic-signal transform;
+4. the optimized F-DMAS identity is tested numerically against the literal
+   pair loop;
+5. every method uses the same delay law, interpolation, active aperture, and
+   transmit-angle set before its method-specific reduction.
+
+The USTB reference files and exact reference commit are written into
+`conventional_baseline_summary.json`; USTB is not a runtime dependency.
+
+The synchronized post-delay timing command is:
+
+```bash
+python src/benchmark_conventional.py \
+  --warmups 10 \
+  --repetitions 50 \
+  --output-dir results/generated/conventional_timing
+```
+
+The timing boundary begins with complex-IQ and real-RF delayed channel tensors
+already resident on the GPU. It includes each method-specific reduction, MV
+covariance construction/solve, and F-DMAS FIR/Hilbert processing. It excludes
+the identical delay calculation/interpolation, disk I/O, and transfers. Both
+the boundary and leading-order operation counts are recorded in JSON.
+
+## 4. Scaling and transfer-aware timing suite
+
+```bash
+python src/benchmark_scaling.py \
+  --warmups 10 \
+  --repetitions 50 \
+  --output-dir results/generated/timing_scaling
+```
+
+The primary cases vary grids of 64x128, 128x256, and 256x512 pixels; 64, 128,
+and 256 receive elements; and 9, 17, 33, and 75 transmit angles. Two controls
+measure the baseline with all arrays preloaded and with host-stacked
+Receive-NSI input. Cases are independently resumable. Median latency is
+reported with IQR and a deterministic percentile-bootstrap 95% interval.
+
+## 5. Experimental PSF and spatial-variability study
+
+First fetch and checksum-verify the public inputs:
+
+```bash
+python scripts/fetch_datasets.py --dataset all
+```
+
+The CPU metadata check is:
+
+```bash
+python src/picmus_experimental_psf.py --metadata-only
+```
+
+The full GPU run is:
+
+```bash
+python src/picmus_experimental_psf.py \
+  --output-dir results/generated/picmus_experimental_psf
+```
+
+Local maps use 0.02 mm sampling. Separate 0.002 mm lateral and 0.005 mm axial
+profiles are beamformed directly from channel data at every target; no coarse
+image interpolation is used. The output includes all four methods, `c`
+sensitivity, the five-target depth series, and the three-target lateral series
+near 37.5 mm.
+
+## 6. Full robustness study
 
 Recommended command:
 
@@ -157,3 +273,8 @@ The generated output directory includes:
   recentered case tests a simple mitigation and is labelled separately.
 - A very narrow single-target NSI FWHM is not claimed to be physical target
   resolvability; the explicit two-target analysis is the relevant evidence.
+- A DAS-to-NSI peak match is positional concordance against a reconstruction,
+  not an estimate of biological sensitivity. The MBTrace audit separates
+  within-tolerance matches, displacements within a wider tracking radius, and
+  cases with no nearby detected peak; the last category cannot distinguish
+  threshold suppression from true absence.

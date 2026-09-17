@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -14,6 +15,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = ROOT / "src"
+sys.path.insert(0, str(SOURCE_DIR))
 
 
 def load_module(name: str, filename: str):
@@ -22,11 +24,13 @@ def load_module(name: str, filename: str):
     )
     module = importlib.util.module_from_spec(specification)
     assert specification.loader is not None
+    sys.modules[name] = module
     specification.loader.exec_module(module)
     return module
 
 
 benchmark = load_module("benchmark_nsi", "benchmark_nsi.py")
+scaling = load_module("benchmark_scaling", "benchmark_scaling.py")
 robustness = load_module(
     "simulation_robustness", "simulation_robustness.py"
 )
@@ -54,12 +58,20 @@ class ValidationHelperTests(unittest.TestCase):
             return np.empty(shape, dtype=dtype)
 
         @staticmethod
+        def concatenate(values, axis=0):
+            return np.concatenate(values, axis=axis)
+
+        @staticmethod
         def abs(value):
             return np.abs(value)
 
         @staticmethod
         def maximum(left, right):
             return np.maximum(left, right)
+
+        @staticmethod
+        def clip(value, lower, upper):
+            return np.clip(value, lower, upper)
 
         @staticmethod
         def sum(value, axis=None):
@@ -84,6 +96,7 @@ class ValidationHelperTests(unittest.TestCase):
             dc_offset=0.05,
             include_naive_reference=True,
             transfers="none",
+            receive_input_mode="device-weighted",
             f_number=1.0,
             rx_start_us=0.0,
             sampling_frequency_mhz=20.0,
@@ -114,6 +127,7 @@ class ValidationHelperTests(unittest.TestCase):
         outputs = {}
         for method in (
             benchmark.METHOD_DAS,
+            benchmark.METHOD_CF,
             benchmark.METHOD_RECEIVE,
             benchmark.METHOD_ANGLE_STREAM,
             benchmark.METHOD_ANGLE_STORED,
@@ -145,6 +159,86 @@ class ValidationHelperTests(unittest.TestCase):
             rtol=2e-5,
             atol=2e-5,
         )
+
+    def test_transfer_bytes_distinguish_same_raw_and_host_stacked_inputs(self):
+        iq = np.zeros((3, 8, 4), dtype=np.complex64)
+        args = Namespace(
+            transfers="both",
+            receive_input_mode="device-weighted",
+            scope="reconstruction",
+            nx=2,
+            nz=3,
+            elements=4,
+            angles=3,
+        )
+        device_weighted = benchmark.transfer_byte_accounting(
+            benchmark.METHOD_RECEIVE, args, iq
+        )
+        das = benchmark.transfer_byte_accounting(benchmark.METHOD_DAS, args, iq)
+        self.assertEqual(
+            device_weighted["timed_channel_h2d_bytes"],
+            das["timed_channel_h2d_bytes"],
+        )
+        args.receive_input_mode = "host-stacked"
+        host_stacked = benchmark.transfer_byte_accounting(
+            benchmark.METHOD_RECEIVE, args, iq
+        )
+        self.assertEqual(
+            host_stacked["timed_channel_h2d_bytes"],
+            2 * das["timed_channel_h2d_bytes"],
+        )
+
+    def test_bootstrap_median_interval_is_deterministic(self):
+        first = benchmark.bootstrap_median_ci_ms(
+            [0.001, 0.002, 0.003, 0.004], resamples=500, seed=7
+        )
+        second = benchmark.bootstrap_median_ci_ms(
+            [0.001, 0.002, 0.003, 0.004], resamples=500, seed=7
+        )
+        self.assertEqual(first, second)
+        self.assertLessEqual(first[0], 2.5)
+        self.assertGreaterEqual(first[1], 2.5)
+
+    def test_scaling_suite_covers_requested_dimensions_and_controls(self):
+        cases = scaling.build_cases()
+        families = {case.family for case in cases}
+        self.assertTrue({
+            "grid_pixels", "receive_elements", "transmit_angles",
+            "timing_scope", "receive_transfer_mode",
+        }.issubset(families))
+        self.assertTrue(all(case.angles % 2 == 1 for case in cases))
+        primary = scaling.selected_cases(cases, "primary")
+        self.assertTrue(all(case.receive_input_mode == "device-weighted" for case in primary))
+
+    def test_scaling_cache_requires_exact_publication_configuration(self):
+        case = scaling.build_cases()[1]
+        args = Namespace(quick=False, warmups=10, repetitions=50)
+        payload = {
+            "scope": case.scope,
+            "included_transfers": {
+                "channel_host_to_device": True,
+                "final_image_device_to_host": True,
+            },
+            "receive_input_mode": case.receive_input_mode,
+            "angle_image_storage": "streaming",
+            "configuration": {
+                "warmups": 10,
+                "repetitions": 50,
+                "configuration_label": case.run_id,
+                "receive_elements": case.elements,
+                "angle_count": case.angles,
+                "image_grid": {"nx": case.nx, "nz": case.nz},
+            },
+            "summary": [
+                {"method": method, "n": 50}
+                for method in scaling.EXPECTED_METHODS
+            ],
+        }
+        self.assertTrue(scaling.completed_summary_matches(payload, case, args))
+        payload["configuration"]["repetitions"] = 3
+        for row in payload["summary"]:
+            row["n"] = 3
+        self.assertFalse(scaling.completed_summary_matches(payload, case, args))
 
     def test_gaussian_half_amplitude_width(self):
         sigma_mm = 0.100
