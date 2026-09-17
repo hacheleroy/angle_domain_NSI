@@ -111,6 +111,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dmas-x-spacing-mm", type=float, default=0.10)
     parser.add_argument("--dmas-z-spacing-mm", type=float, default=0.02)
     parser.add_argument("--mv-chunk-pixels", type=int, default=32)
+    parser.add_argument("--iq-focus-chunk-pixels", type=int, default=8192)
     parser.add_argument("--dmas-x-chunk-lines", type=int, default=16)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--metadata-only", action="store_true")
@@ -421,6 +422,8 @@ def main() -> None:
     )
     if any(not np.isfinite(value) or value <= 0.0 for value in positive):
         raise SystemExit("All physical and grid parameters must be finite and positive.")
+    if args.iq_focus_chunk_pixels <= 0:
+        raise SystemExit("--iq-focus-chunk-pixels must be positive.")
     output = args.output_dir.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
 
@@ -518,10 +521,21 @@ def main() -> None:
             cp=cp,
             label="full PICMUS phantom",
             compute_mv=False,
+            focus_chunk_pixels=args.iq_focus_chunk_pixels,
         )
-        images.update(
-            canonicalize_images(iq_images, (x_axis.size, z_axis.size))
+        reconstructed = canonicalize_images(
+            iq_images, (x_axis.size, z_axis.size)
         )
+        invalid = [
+            method for method, image in reconstructed.items()
+            if not valid_cached_image(image, (x_axis.size, z_axis.size))
+        ]
+        if invalid:
+            raise RuntimeError(
+                "Full-phantom IQ reconstruction produced invalid maps: "
+                f"{invalid}"
+            )
+        images.update(reconstructed)
         save_staged_cache(
             cache_path,
             cache_metadata_path,
@@ -549,6 +563,7 @@ def main() -> None:
             mv_configuration=mv_configuration,
             cp=cp,
             label="full PICMUS phantom MV grid",
+            focus_chunk_pixels=args.iq_focus_chunk_pixels,
         )
         images[MV] = resample_regular_image(
             mv_images[MV].reshape(mv_x_axis.size, z_axis.size),
@@ -557,6 +572,8 @@ def main() -> None:
             x_axis,
             z_axis,
         )
+        if not valid_cached_image(images[MV], (x_axis.size, z_axis.size)):
+            raise RuntimeError("Full-phantom MV reconstruction produced an invalid map.")
         save_staged_cache(
             cache_path,
             cache_metadata_path,

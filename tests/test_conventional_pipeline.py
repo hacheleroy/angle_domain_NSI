@@ -190,6 +190,24 @@ class ConventionalPipelineTests(unittest.TestCase):
             set(iq_without_mv),
             {"DAS", "CF-DAS", "Receive-NSI", "Angle-NSI"},
         )
+        iq_chunked = reconstruct_iq_methods(
+            dataset,
+            np.arange(angles),
+            points,
+            grid_shape=(x_m.size, z_m.size),
+            carrier_frequency_hz=1.0e6,
+            f_number=1.0,
+            nsi_c=0.05,
+            mv_configuration=MvConfiguration(chunk_pixels=3),
+            cp=cp,
+            label="chunked test",
+            focus_chunk_pixels=2,
+        )
+        self.assertEqual(set(iq_chunked), set(iq))
+        for method in iq:
+            np.testing.assert_allclose(
+                iq_chunked[method], iq[method], rtol=3e-6, atol=1e-7
+            )
         fine_z = np.linspace(0.8e-3, 1.5e-3, 36, dtype=np.float32)
         fdmas, metadata = reconstruct_fdmas(
             dataset,

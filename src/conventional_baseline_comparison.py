@@ -395,7 +395,17 @@ def reconstruct_iq_methods(
     cp: Any,
     label: str,
     compute_mv: bool = True,
+    focus_chunk_pixels: int | None = None,
 ) -> dict[str, np.ndarray]:
+    if focus_chunk_pixels is not None and focus_chunk_pixels <= 0:
+        raise ValueError("focus_chunk_pixels must be positive when provided.")
+    if (
+        focus_chunk_pixels is not None
+        and mv_configuration.temporal_half_window_samples
+    ):
+        raise ValueError(
+            "Chunked focusing is not compatible with MV temporal averaging."
+        )
     selected_data = dataset.data[:, :, angle_indices]
     selected_angles = dataset.angles_rad[angle_indices]
     angular_weights, _ = angular_sign_weights(np.rad2deg(selected_angles))
@@ -419,34 +429,41 @@ def reconstruct_iq_methods(
     receive_null = cp.zeros(count, dtype=cp.complex64)
     angle_null = cp.zeros(count, dtype=cp.complex64)
 
+    chunk_pixels = count if focus_chunk_pixels is None else focus_chunk_pixels
     for local_index, angle_rad in enumerate(selected_angles):
-        base, mask = focused_samples(
-            iq_gpu,
-            local_index,
-            float(angle_rad),
-            points_m,
-            receive_time_gpu,
-            aperture_gpu,
-            sampling_frequency_hz=dataset.sampling_frequency_hz,
-            sound_speed_m_s=dataset.sound_speed_m_s,
-            initial_time_s=dataset.initial_time_s,
-            carrier_frequency_hz=carrier_frequency_hz,
-            cp=cp,
-        )
-        angle_das = cp.sum(base, axis=1)
-        uniform += angle_das
-        receive_cf += receive_cf_das(base, mask, xp=cp)
-        if compute_mv:
-            assert mv is not None
-            mv += capon_minimum_variance(
-                base,
-                mask,
-                grid_shape=grid_shape,
-                configuration=mv_configuration,
-                xp=cp,
+        for begin in range(0, count, chunk_pixels):
+            end = min(begin + chunk_pixels, count)
+            base, mask = focused_samples(
+                iq_gpu,
+                local_index,
+                float(angle_rad),
+                points_m[begin:end],
+                receive_time_gpu[begin:end],
+                aperture_gpu[begin:end],
+                sampling_frequency_hz=dataset.sampling_frequency_hz,
+                sound_speed_m_s=dataset.sound_speed_m_s,
+                initial_time_s=dataset.initial_time_s,
+                carrier_frequency_hz=carrier_frequency_hz,
+                cp=cp,
             )
-        receive_null += cp.sum(base * receive_sign_gpu, axis=1)
-        angle_null += angle_weights_gpu[local_index] * angle_das
+            angle_das = cp.sum(base, axis=1)
+            uniform[begin:end] += angle_das
+            receive_cf[begin:end] += receive_cf_das(base, mask, xp=cp)
+            if compute_mv:
+                assert mv is not None
+                mv[begin:end] += capon_minimum_variance(
+                    base,
+                    mask,
+                    grid_shape=(end - begin, 1),
+                    configuration=mv_configuration,
+                    xp=cp,
+                )
+            receive_null[begin:end] += cp.sum(
+                base * receive_sign_gpu[begin:end], axis=1
+            )
+            angle_null[begin:end] += (
+                angle_weights_gpu[local_index] * angle_das
+            )
         if (local_index + 1) % 5 == 0 or local_index + 1 == len(selected_angles):
             print(f"  {label}: IQ methods {local_index + 1}/{len(selected_angles)} angles")
 
