@@ -428,12 +428,14 @@ def reconstruct_iq_methods(
         method: np.empty(count, dtype=np.float32) for method in method_order
     }
     chunk_count = int(np.ceil(count / chunk_pixels))
+    adaptive_retries = 0
 
     # Transfer the delay/aperture tables batch by batch.  Large H2D transfers
     # of these full-field tables can silently yield finite all-zero gathers on
     # WSL/CuPy, whereas the same focused pixels are valid in small batches.
-    for chunk_index, begin in enumerate(range(0, count, chunk_pixels), start=1):
-        end = min(begin + chunk_pixels, count)
+    def reconstruct_batch(begin: int, end: int) -> dict[str, np.ndarray]:
+        """Reconstruct and validate one focused-pixel batch."""
+
         receive_time_gpu = cp.asarray(
             receive_time[begin:end], dtype=cp.float32
         )
@@ -487,16 +489,63 @@ def reconstruct_iq_methods(
             assert mv is not None
             output_gpu[MV] = cp.abs(mv)
         cp.cuda.Stream.null.synchronize()
-        for method, values in output_gpu.items():
-            output[method][begin:end] = cp.asnumpy(values)
+        return {
+            method: np.asarray(cp.asnumpy(values), dtype=np.float32)
+            for method, values in output_gpu.items()
+        }
+
+    def valid_batch(values: dict[str, np.ndarray]) -> bool:
+        return bool(
+            all(np.all(np.isfinite(array)) for array in values.values())
+            and float(np.max(values[DAS])) > 0.0
+        )
+
+    for chunk_index, begin in enumerate(range(0, count, chunk_pixels), start=1):
+        base_end = min(begin + chunk_pixels, count)
+        pending = [(begin, base_end)]
+        while pending:
+            batch_begin, batch_end = pending.pop(0)
+            batch_output = reconstruct_batch(batch_begin, batch_end)
+            if not valid_batch(batch_output):
+                if batch_end - batch_begin <= 1:
+                    diagnostics = {
+                        method: {
+                            "finite": bool(np.all(np.isfinite(values))),
+                            "maximum": float(np.nanmax(values)),
+                        }
+                        for method, values in batch_output.items()
+                    }
+                    raise RuntimeError(
+                        f"{label} IQ focusing failed at pixel {batch_begin}: "
+                        f"{diagnostics}"
+                    )
+                midpoint = batch_begin + (batch_end - batch_begin) // 2
+                adaptive_retries += 1
+                print(
+                    f"  {label}: IQ batch pixels {batch_begin + 1}-{batch_end} "
+                    "failed validation; retrying as "
+                    f"{batch_begin + 1}-{midpoint} and "
+                    f"{midpoint + 1}-{batch_end}."
+                )
+                pending[0:0] = [
+                    (batch_begin, midpoint), (midpoint, batch_end)
+                ]
+                continue
+            for method, values in batch_output.items():
+                output[method][batch_begin:batch_end] = values
         if chunk_index % 10 == 0 or chunk_index == chunk_count:
             print(
                 f"  {label}: IQ focus batch {chunk_index}/{chunk_count} "
-                f"({end}/{count} pixels, {len(selected_angles)} angles)"
+                f"({base_end}/{count} pixels, {len(selected_angles)} angles)"
             )
 
     del iq_gpu
     cp.get_default_memory_pool().free_all_blocks()
+    if adaptive_retries:
+        print(
+            f"  {label}: completed with {adaptive_retries} adaptive "
+            "IQ batch retries."
+        )
     return output
 
 

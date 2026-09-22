@@ -208,6 +208,37 @@ class ConventionalPipelineTests(unittest.TestCase):
             np.testing.assert_allclose(
                 iq_chunked[method], iq[method], rtol=3e-6, atol=1e-7
             )
+        from conventional_baseline_comparison import focused_samples as original_focus
+
+        def fail_large_focus(*args, **kwargs):
+            points_arg = args[3]
+            if points_arg.shape[0] > 2:
+                mask_arg = np.asarray(args[5], dtype=np.float32)
+                return np.zeros(mask_arg.shape, dtype=np.complex64), mask_arg
+            return original_focus(*args, **kwargs)
+
+        with patch(
+            "conventional_baseline_comparison.focused_samples",
+            side_effect=fail_large_focus,
+        ):
+            recovered = reconstruct_iq_methods(
+                dataset,
+                np.arange(angles),
+                points,
+                grid_shape=(x_m.size, z_m.size),
+                carrier_frequency_hz=1.0e6,
+                f_number=1.0,
+                nsi_c=0.05,
+                mv_configuration=MvConfiguration(chunk_pixels=3),
+                cp=cp,
+                label="adaptive IQ test",
+                compute_mv=False,
+                focus_chunk_pixels=6,
+            )
+        for method in iq_without_mv:
+            np.testing.assert_allclose(
+                recovered[method], iq_without_mv[method], rtol=3e-6, atol=1e-7
+            )
         fine_z = np.linspace(0.8e-3, 1.5e-3, 36, dtype=np.float32)
         fdmas, metadata = reconstruct_fdmas(
             dataset,
