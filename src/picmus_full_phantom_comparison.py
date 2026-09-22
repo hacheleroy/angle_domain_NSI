@@ -111,7 +111,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dmas-x-spacing-mm", type=float, default=0.10)
     parser.add_argument("--dmas-z-spacing-mm", type=float, default=0.02)
     parser.add_argument("--mv-chunk-pixels", type=int, default=32)
-    parser.add_argument("--iq-focus-chunk-pixels", type=int, default=8192)
+    # Keep the focused gather small on WSL/CuPy.  Larger batches can return
+    # finite all-zero arrays on otherwise valid data without raising a CUDA
+    # error; 1024 pixels is below the observed failure boundary.
+    parser.add_argument("--iq-focus-chunk-pixels", type=int, default=1024)
     parser.add_argument("--dmas-x-chunk-lines", type=int, default=16)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--metadata-only", action="store_true")
