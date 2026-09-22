@@ -412,12 +412,6 @@ def reconstruct_iq_methods(
     iq_gpu = demodulate_rf(
         selected_data, dataset.sampling_frequency_hz, carrier_frequency_hz, cp
     )
-    receive_time, aperture, receive_sign = dynamic_aperture_tables(
-        points_m,
-        dataset.probe_geometry_m,
-        f_number=f_number,
-        sound_speed_m_s=dataset.sound_speed_m_s,
-    )
     angle_weights_gpu = cp.asarray(angular_weights, dtype=cp.float32)
     count = points_m.shape[0]
     chunk_pixels = count if focus_chunk_pixels is None else focus_chunk_pixels
@@ -437,12 +431,18 @@ def reconstruct_iq_methods(
     def reconstruct_batch(begin: int, end: int) -> dict[str, np.ndarray]:
         """Reconstruct and validate one focused-pixel batch."""
 
-        receive_time_gpu = cp.asarray(
-            receive_time[begin:end], dtype=cp.float32
+        receive_time, aperture, receive_sign = dynamic_aperture_tables(
+            points_m[begin:end],
+            dataset.probe_geometry_m,
+            f_number=f_number,
+            sound_speed_m_s=dataset.sound_speed_m_s,
         )
-        aperture_gpu = cp.asarray(aperture[begin:end], dtype=cp.float32)
+        receive_time_gpu = cp.asarray(
+            receive_time, dtype=cp.float32
+        )
+        aperture_gpu = cp.asarray(aperture, dtype=cp.float32)
         receive_sign_gpu = cp.asarray(
-            receive_sign[begin:end], dtype=cp.float32
+            receive_sign, dtype=cp.float32
         )
         chunk_size = end - begin
         uniform = cp.zeros(chunk_size, dtype=cp.complex64)
