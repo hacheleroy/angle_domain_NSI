@@ -305,6 +305,7 @@ def metric_row(
     z_mm: np.ndarray,
     lateral_axis_mm: np.ndarray,
     lateral_profile: np.ndarray,
+    lateral_profile_z_mm: float,
 ) -> dict[str, Any]:
     peak_flat = int(np.argmax(image))
     peak_x_index, peak_z_index = np.unravel_index(peak_flat, image.shape)
@@ -329,6 +330,7 @@ def metric_row(
         "axial_width_mm": axial_width.width_mm,
         "peak_x_mm": float(x_mm[peak_x_index]),
         "peak_z_mm": float(z_mm[peak_z_index]),
+        "lateral_profile_z_mm": float(lateral_profile_z_mm),
         "peak_to_median_background_db": peak_to_background_db(
             image,
             x_mm,
@@ -576,28 +578,44 @@ def main() -> None:
         args.profile_half_width_mm * 1e-3,
         args.profile_spacing_mm * 1e-3,
     ).astype(np.float32)
-    profile_points = regular_points(profile_x, np.asarray([target_z_m], dtype=np.float32))
-    fine_profiles_flat = reconstruct_iq_methods(
-        iq_gpu,
-        angles_rad,
-        profile_points,
-        probe_geometry,
-        grid_shape=(profile_x.size, 1),
-        sampling_frequency_hz=float(param.fs),
-        carrier_frequency_hz=float(param.fc),
-        sound_speed_m_s=sound_speed,
-        initial_time_s=initial_time,
-        nsi_c=args.nsi_c,
-        mv_configuration=mv_configuration,
-        cp=cp,
-        label="simulation lateral profile",
-    )
-    profiles: dict[str, tuple[np.ndarray, np.ndarray]] = {
-        method: (profile_x * 1e3, np.asarray(values).reshape(-1))
-        for method, values in fine_profiles_flat.items()
+    profile_depths_m = {
+        method: float(
+            map_z[
+                np.unravel_index(
+                    np.argmax(images[method]), images[method].shape
+                )[1]
+            ]
+        )
+        for method in METHODS
     }
-    target_z_index = int(np.argmin(np.abs(map_z - target_z_m)))
-    profiles[DMAS] = (map_x * 1e3, images[DMAS][:, target_z_index])
+    profiles: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for profile_depth_m in sorted({profile_depths_m[method] for method in IQ_METHODS}):
+        profile_points = regular_points(
+            profile_x, np.asarray([profile_depth_m], dtype=np.float32)
+        )
+        fine_profiles_flat = reconstruct_iq_methods(
+            iq_gpu,
+            angles_rad,
+            profile_points,
+            probe_geometry,
+            grid_shape=(profile_x.size, 1),
+            sampling_frequency_hz=float(param.fs),
+            carrier_frequency_hz=float(param.fc),
+            sound_speed_m_s=sound_speed,
+            initial_time_s=initial_time,
+            nsi_c=args.nsi_c,
+            mv_configuration=mv_configuration,
+            cp=cp,
+            label=f"simulation lateral profile at {profile_depth_m * 1e3:.3f} mm",
+        )
+        for method in IQ_METHODS:
+            if profile_depths_m[method] == profile_depth_m:
+                profiles[method] = (
+                    profile_x * 1e3,
+                    np.asarray(fine_profiles_flat[method]).reshape(-1),
+                )
+    dmas_z_index = int(np.argmin(np.abs(map_z - profile_depths_m[DMAS])))
+    profiles[DMAS] = (map_x * 1e3, images[DMAS][:, dmas_z_index])
 
     rows = [
         metric_row(
@@ -607,6 +625,7 @@ def main() -> None:
             map_z * 1e3,
             profiles[method][0],
             profiles[method][1],
+            profile_depths_m[method] * 1e3,
         )
         for method in METHODS
     ]
