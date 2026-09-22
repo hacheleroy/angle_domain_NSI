@@ -430,9 +430,10 @@ def reconstruct_iq_methods(
     chunk_count = int(np.ceil(count / chunk_pixels))
     adaptive_retries = 0
 
-    # Transfer the delay/aperture tables batch by batch.  Large H2D transfers
-    # of these full-field tables can silently yield finite all-zero gathers on
-    # WSL/CuPy, whereas the same focused pixels are valid in small batches.
+    # Transfer the delay/aperture tables batch by batch to bound GPU memory.
+    # Some edge batches are legitimately all zero because they contain only
+    # background outside the recorded echo support, so batch validation tests
+    # finiteness only.  Positive signal is required later for the complete map.
     def reconstruct_batch(begin: int, end: int) -> dict[str, np.ndarray]:
         """Reconstruct and validate one focused-pixel batch."""
 
@@ -495,10 +496,7 @@ def reconstruct_iq_methods(
         }
 
     def valid_batch(values: dict[str, np.ndarray]) -> bool:
-        return bool(
-            all(np.all(np.isfinite(array)) for array in values.values())
-            and float(np.max(values[DAS])) > 0.0
-        )
+        return bool(all(np.all(np.isfinite(array)) for array in values.values()))
 
     for chunk_index, begin in enumerate(range(0, count, chunk_pixels), start=1):
         base_end = min(begin + chunk_pixels, count)

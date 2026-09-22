@@ -214,7 +214,8 @@ class ConventionalPipelineTests(unittest.TestCase):
             points_arg = args[3]
             if points_arg.shape[0] > 2:
                 mask_arg = np.asarray(args[5], dtype=np.float32)
-                return np.zeros(mask_arg.shape, dtype=np.complex64), mask_arg
+                invalid = np.full(mask_arg.shape, np.nan, dtype=np.complex64)
+                return invalid, mask_arg
             return original_focus(*args, **kwargs)
 
         with patch(
