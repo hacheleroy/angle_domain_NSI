@@ -16,6 +16,8 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -64,6 +66,9 @@ PROFILE_METHODS = (DAS, RECEIVE_NSI, ANGLE_NSI)
 NOTCH_SEARCH_HALF_WIDTH_MM = 0.15
 NOTCH_THRESHOLD_DB = 6.0
 NOTCH_FLOOR_DB = -60.0
+IQ_TILE_METHODS = (DAS, CF_DAS, RECEIVE_NSI, ANGLE_NSI)
+WORKER_STAGES = ("iq", "mv", "dmas")
+TILE_CACHE_SCHEMA_VERSION = 1
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,9 +120,31 @@ def parse_args() -> argparse.Namespace:
     # finite all-zero arrays on otherwise valid data without raising a CUDA
     # error; 1024 pixels is below the observed failure boundary.
     parser.add_argument("--iq-focus-chunk-pixels", type=int, default=1024)
+    parser.add_argument(
+        "--tile-x-lines",
+        type=int,
+        default=16,
+        help=(
+            "Lateral lines reconstructed per isolated CUDA subprocess for "
+            "the full-field IQ and MV stages (default: 16). Completed tiles "
+            "are checkpointed and reused after interruption."
+        ),
+    )
     parser.add_argument("--dmas-x-chunk-lines", type=int, default=16)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--metadata-only", action="store_true")
+    parser.add_argument(
+        "--worker-stage",
+        choices=WORKER_STAGES,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--worker-x-start", type=int, default=None, help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--worker-x-stop", type=int, default=None, help=argparse.SUPPRESS
+    )
     return parser.parse_args()
 
 
@@ -144,6 +171,27 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     with path.open("w", encoding="utf-8") as stream:
         json.dump(value, stream, indent=2, allow_nan=False)
         stream.write("\n")
+
+
+def durable_replace(temporary: Path, destination: Path) -> None:
+    """Flush a checkpoint before its atomic rename when the platform permits."""
+
+    with temporary.open("rb") as stream:
+        os.fsync(stream.fileno())
+    temporary.replace(destination)
+    if hasattr(os, "O_DIRECTORY"):
+        try:
+            directory_fd = os.open(
+                destination.parent, os.O_RDONLY | os.O_DIRECTORY
+            )
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            # Some mounted filesystems do not support directory fsync. The
+            # already-completed atomic rename remains the safe fallback.
+            pass
 
 
 def canonicalize_images(
@@ -235,6 +283,499 @@ def save_staged_cache(
     if dmas_metadata is not None:
         metadata["dmas_filter"] = dmas_metadata
     write_json(metadata_path, metadata)
+
+
+def lateral_tiles(line_count: int, tile_lines: int) -> list[tuple[int, int]]:
+    """Return exhaustive, non-overlapping half-open lateral tile ranges."""
+
+    if line_count < 1:
+        raise ValueError("The lateral axis must contain at least one line.")
+    if tile_lines < 1:
+        raise ValueError("The lateral tile size must be positive.")
+    return [
+        (begin, min(begin + tile_lines, line_count))
+        for begin in range(0, line_count, tile_lines)
+    ]
+
+
+def tile_cache_path(
+    tile_root: Path,
+    stage: str,
+    begin: int,
+    end: int,
+) -> Path:
+    if stage not in WORKER_STAGES:
+        raise ValueError(f"Unknown full-phantom worker stage: {stage}")
+    return tile_root / stage / f"{stage}_x_{begin:04d}_{end:04d}.npz"
+
+
+def save_tile_cache(
+    path: Path,
+    *,
+    signature: str,
+    stage: str,
+    begin: int,
+    end: int,
+    x_axis: np.ndarray,
+    z_axis: np.ndarray,
+    images: dict[str, np.ndarray],
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Atomically save one independently reproducible reconstruction tile."""
+
+    expected_shape = (end - begin, z_axis.size)
+    if begin < 0 or end <= begin or x_axis.size != expected_shape[0]:
+        raise ValueError("Invalid lateral tile bounds or axis.")
+    if not images:
+        raise ValueError("A tile must contain at least one method image.")
+    invalid = [
+        method
+        for method, image in images.items()
+        if not valid_cached_image(image, expected_shape)
+    ]
+    if invalid:
+        raise ValueError(f"Cannot checkpoint invalid tile methods: {invalid}")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "schema_version": np.asarray(TILE_CACHE_SCHEMA_VERSION, dtype=np.int64),
+        "signature": np.asarray(signature),
+        "stage": np.asarray(stage),
+        "x_begin": np.asarray(begin, dtype=np.int64),
+        "x_end": np.asarray(end, dtype=np.int64),
+        "x_axis_m": np.asarray(x_axis, dtype=np.float32),
+        "z_axis_m": np.asarray(z_axis, dtype=np.float32),
+    }
+    payload.update(
+        {
+            f"image_{method_key(method)}": np.asarray(image, dtype=np.float32)
+            for method, image in images.items()
+        }
+    )
+    if metadata is not None:
+        payload["metadata_json"] = np.asarray(
+            json.dumps(metadata, sort_keys=True, separators=(",", ":"))
+        )
+    temporary = path.with_suffix(".tmp.npz")
+    np.savez_compressed(temporary, **payload)
+    durable_replace(temporary, path)
+
+
+def load_tile_cache(
+    path: Path,
+    *,
+    signature: str,
+    stage: str,
+    begin: int,
+    end: int,
+    x_axis: np.ndarray,
+    z_axis: np.ndarray,
+    methods: tuple[str, ...],
+) -> tuple[dict[str, np.ndarray], dict[str, Any]] | None:
+    """Load a tile only when its identity, axes, methods, and values validate."""
+
+    if not path.is_file():
+        return None
+    expected_shape = (end - begin, z_axis.size)
+    try:
+        with np.load(path, allow_pickle=False) as archive:
+            if int(np.asarray(archive["schema_version"]).item()) != TILE_CACHE_SCHEMA_VERSION:
+                return None
+            if str(np.asarray(archive["signature"]).item()) != signature:
+                return None
+            if str(np.asarray(archive["stage"]).item()) != stage:
+                return None
+            if int(np.asarray(archive["x_begin"]).item()) != begin:
+                return None
+            if int(np.asarray(archive["x_end"]).item()) != end:
+                return None
+            if not np.array_equal(np.asarray(archive["x_axis_m"]), x_axis):
+                return None
+            if not np.array_equal(np.asarray(archive["z_axis_m"]), z_axis):
+                return None
+            images: dict[str, np.ndarray] = {}
+            for method in methods:
+                key = f"image_{method_key(method)}"
+                if key not in archive.files:
+                    return None
+                image = np.asarray(archive[key])
+                if not valid_cached_image(image, expected_shape):
+                    return None
+                images[method] = image.copy()
+            metadata = {}
+            if "metadata_json" in archive.files:
+                metadata = json.loads(
+                    str(np.asarray(archive["metadata_json"]).item())
+                )
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return None
+    return images, metadata
+
+
+def tile_manifest(
+    tile_root: Path,
+    *,
+    signature: str,
+    stage: str,
+    line_count: int,
+    ranges: list[tuple[int, int]],
+    completed: list[tuple[int, int]],
+) -> None:
+    """Write a human-readable progress checkpoint; tile files remain authoritative."""
+
+    path = tile_root / f"{stage}_manifest.json"
+    temporary = path.with_suffix(".json.tmp")
+    payload = {
+        "schema_version": TILE_CACHE_SCHEMA_VERSION,
+        "signature": signature,
+        "stage": stage,
+        "lateral_line_count": line_count,
+        "tile_count": len(ranges),
+        "completed_tile_count": len(completed),
+        "completed_ranges_zero_based_half_open": [list(item) for item in completed],
+        "complete": len(completed) == len(ranges),
+    }
+    write_json(temporary, payload)
+    temporary.replace(path)
+
+
+def worker_command(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    begin: int,
+    end: int,
+) -> list[str]:
+    """Build an unbuffered self-invocation for one fresh CUDA context."""
+
+    command = [
+        sys.executable,
+        "-u",
+        str(Path(__file__).resolve()),
+        "--dataset",
+        str(args.dataset.expanduser().resolve()),
+        "--phantom",
+        str(args.phantom.expanduser().resolve()),
+        "--output-dir",
+        str(args.output_dir.expanduser().resolve()),
+        "--device",
+        str(args.device),
+        "--carrier-frequency-mhz",
+        str(args.carrier_frequency_mhz),
+        "--f-number",
+        str(args.f_number),
+        "--nsi-c",
+        str(args.nsi_c),
+        "--x-margin-mm",
+        str(args.x_margin_mm),
+        "--z-margin-mm",
+        str(args.z_margin_mm),
+        "--x-spacing-mm",
+        str(args.x_spacing_mm),
+        "--z-spacing-mm",
+        str(args.z_spacing_mm),
+        "--mv-x-spacing-mm",
+        str(args.mv_x_spacing_mm),
+        "--dmas-x-spacing-mm",
+        str(args.dmas_x_spacing_mm),
+        "--dmas-z-spacing-mm",
+        str(args.dmas_z_spacing_mm),
+        "--mv-chunk-pixels",
+        str(args.mv_chunk_pixels),
+        "--iq-focus-chunk-pixels",
+        str(args.iq_focus_chunk_pixels),
+        "--tile-x-lines",
+        str(args.tile_x_lines),
+        "--dmas-x-chunk-lines",
+        str(args.dmas_x_chunk_lines),
+        "--worker-stage",
+        stage,
+        "--worker-x-start",
+        str(begin),
+        "--worker-x-stop",
+        str(end),
+    ]
+    if args.angle_count is not None:
+        command.extend(["--angle-count", str(args.angle_count)])
+    return command
+
+
+def import_cupy_for_device(device: str) -> Any:
+    """Import CuPy only inside a short-lived reconstruction worker."""
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+    try:
+        import cupy as cp
+    except ImportError as error:
+        raise SystemExit(
+            "The full-phantom comparison requires CuPy and an NVIDIA GPU."
+        ) from error
+    cp.cuda.Device(0).use()
+    return cp
+
+
+def run_worker_stage(
+    args: argparse.Namespace,
+    *,
+    dataset: Any,
+    angle_indices: np.ndarray,
+    x_axis: np.ndarray,
+    z_axis: np.ndarray,
+    x_min: float,
+    x_max: float,
+    mv_configuration: MvConfiguration,
+    run_signature: str,
+    tile_root: Path,
+) -> None:
+    """Execute exactly one checkpointed stage tile in a fresh CUDA process."""
+
+    stage = args.worker_stage
+    if stage not in WORKER_STAGES:
+        raise SystemExit("A valid --worker-stage is required in worker mode.")
+    if args.worker_x_start is None or args.worker_x_stop is None:
+        raise SystemExit("Worker mode requires --worker-x-start and --worker-x-stop.")
+    begin = int(args.worker_x_start)
+    end = int(args.worker_x_stop)
+    cp = import_cupy_for_device(str(args.device))
+
+    if stage == "iq":
+        native_x = x_axis
+        if begin < 0 or end <= begin or end > native_x.size:
+            raise SystemExit("The requested IQ worker tile is outside the lateral grid.")
+        tile_x = native_x[begin:end]
+        points = regular_points(tile_x, z_axis)
+        reconstructed = reconstruct_iq_methods(
+            dataset,
+            angle_indices,
+            points,
+            grid_shape=(tile_x.size, z_axis.size),
+            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
+            f_number=args.f_number,
+            nsi_c=args.nsi_c,
+            mv_configuration=mv_configuration,
+            cp=cp,
+            label=f"full PICMUS phantom IQ tile {begin + 1}-{end}",
+            compute_mv=False,
+            focus_chunk_pixels=args.iq_focus_chunk_pixels,
+        )
+        images = canonicalize_images(
+            reconstructed, (tile_x.size, z_axis.size)
+        )
+        methods = IQ_TILE_METHODS
+        metadata = None
+    elif stage == "mv":
+        native_x = regular_axis(
+            x_min, x_max, args.mv_x_spacing_mm * 1e-3
+        )
+        if begin < 0 or end <= begin or end > native_x.size:
+            raise SystemExit("The requested MV worker tile is outside the lateral grid.")
+        tile_x = native_x[begin:end]
+        points = regular_points(tile_x, z_axis)
+        reconstructed = reconstruct_iq_methods(
+            dataset,
+            angle_indices,
+            points,
+            grid_shape=(tile_x.size, z_axis.size),
+            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
+            f_number=args.f_number,
+            nsi_c=args.nsi_c,
+            mv_configuration=mv_configuration,
+            cp=cp,
+            label=f"full PICMUS phantom MV tile {begin + 1}-{end}",
+            focus_chunk_pixels=args.iq_focus_chunk_pixels,
+        )
+        images = {
+            MV: np.asarray(reconstructed[MV], dtype=np.float32).reshape(
+                tile_x.size, z_axis.size
+            )
+        }
+        methods = (MV,)
+        metadata = None
+    else:
+        native_x = x_axis
+        if begin != 0 or end != native_x.size:
+            raise SystemExit("The DMAS worker must cover the complete display grid.")
+        dmas_x_axis = regular_axis(
+            x_min, x_max, args.dmas_x_spacing_mm * 1e-3
+        )
+        prepare_fdmas_gpu(cp)
+        filter_configuration = FdmasFilterConfiguration()
+        dmas_z, _ = fdmas_padded_axis(
+            float(z_axis[0]),
+            float(z_axis[-1]),
+            args.dmas_z_spacing_mm * 1e-3,
+            sound_speed_m_s=dataset.sound_speed_m_s,
+            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
+            filter_configuration=filter_configuration,
+        )
+        dmas_source, metadata = reconstruct_fdmas(
+            dataset,
+            angle_indices,
+            dmas_x_axis,
+            dmas_z,
+            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
+            f_number=args.f_number,
+            filter_configuration=filter_configuration,
+            cp=cp,
+            label="full PICMUS phantom",
+            x_chunk_lines=args.dmas_x_chunk_lines,
+        )
+        images = {
+            DMAS: resample_regular_image(
+                dmas_source, dmas_x_axis, dmas_z, x_axis, z_axis
+            )
+        }
+        tile_x = x_axis
+        methods = (DMAS,)
+
+    invalid = [
+        method
+        for method in methods
+        if not valid_cached_image(
+            images[method], (tile_x.size, z_axis.size)
+        )
+    ]
+    if invalid:
+        diagnostics = {
+            method: {
+                "finite": bool(np.all(np.isfinite(images[method]))),
+                "maximum": float(np.nanmax(images[method])),
+            }
+            for method in invalid
+        }
+        raise RuntimeError(
+            f"Full-phantom {stage.upper()} tile {begin + 1}-{end} is invalid: "
+            f"{diagnostics}"
+        )
+
+    path = tile_cache_path(tile_root, stage, begin, end)
+    save_tile_cache(
+        path,
+        signature=run_signature,
+        stage=stage,
+        begin=begin,
+        end=end,
+        x_axis=tile_x,
+        z_axis=z_axis,
+        images={method: images[method] for method in methods},
+        metadata=metadata,
+    )
+    maxima = ", ".join(
+        f"{method}={float(np.max(images[method])):.6e}" for method in methods
+    )
+    print(
+        f"Saved full-phantom {stage.upper()} tile {begin + 1}-{end}: "
+        f"{path.name} ({maxima})",
+        flush=True,
+    )
+
+
+def reconstruct_isolated_stage(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    native_x: np.ndarray,
+    z_axis: np.ndarray,
+    methods: tuple[str, ...],
+    run_signature: str,
+    tile_root: Path,
+) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Reconstruct/reuse every tile, with one CUDA subprocess per missing tile."""
+
+    ranges = (
+        [(0, native_x.size)]
+        if stage == "dmas"
+        else lateral_tiles(native_x.size, args.tile_x_lines)
+    )
+    assembled = {
+        method: np.empty((native_x.size, z_axis.size), dtype=np.float32)
+        for method in methods
+    }
+    completed: list[tuple[int, int]] = []
+    reused_count = 0
+    last_metadata: dict[str, Any] = {}
+    for tile_index, (begin, end) in enumerate(ranges, start=1):
+        path = tile_cache_path(tile_root, stage, begin, end)
+        loaded = None
+        if not args.force:
+            loaded = load_tile_cache(
+                path,
+                signature=run_signature,
+                stage=stage,
+                begin=begin,
+                end=end,
+                x_axis=native_x[begin:end],
+                z_axis=z_axis,
+                methods=methods,
+            )
+        if loaded is None:
+            print(
+                f"  full PICMUS phantom: starting isolated {stage.upper()} "
+                f"tile {tile_index}/{len(ranges)} "
+                f"(lateral lines {begin + 1}-{end}).",
+                flush=True,
+            )
+            environment = os.environ.copy()
+            environment["PYTHONUNBUFFERED"] = "1"
+            environment["CUDA_VISIBLE_DEVICES"] = str(args.device)
+            try:
+                subprocess.run(
+                    worker_command(
+                        args, stage=stage, begin=begin, end=end
+                    ),
+                    check=True,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=environment,
+                )
+            except subprocess.CalledProcessError as error:
+                raise RuntimeError(
+                    f"Full-phantom {stage.upper()} tile {tile_index}/"
+                    f"{len(ranges)} failed. The {len(completed)} completed "
+                    "tiles remain checkpointed; rerun the same command to resume."
+                ) from error
+            loaded = load_tile_cache(
+                path,
+                signature=run_signature,
+                stage=stage,
+                begin=begin,
+                end=end,
+                x_axis=native_x[begin:end],
+                z_axis=z_axis,
+                methods=methods,
+            )
+            if loaded is None:
+                raise RuntimeError(
+                    f"Full-phantom {stage.upper()} worker returned without a "
+                    f"valid checkpoint for lateral lines {begin + 1}-{end}."
+                )
+        else:
+            reused_count += 1
+
+        tile_images, last_metadata = loaded
+        for method in methods:
+            assembled[method][begin:end] = tile_images[method]
+        completed.append((begin, end))
+        tile_manifest(
+            tile_root,
+            signature=run_signature,
+            stage=stage,
+            line_count=native_x.size,
+            ranges=ranges,
+            completed=completed,
+        )
+        print(
+            f"  full PICMUS phantom: checkpointed {stage.upper()} "
+            f"tile {tile_index}/{len(ranges)} ({end}/{native_x.size} lines).",
+            flush=True,
+        )
+
+    if reused_count:
+        print(
+            f"  full PICMUS phantom: reused {reused_count}/{len(ranges)} "
+            f"validated {stage.upper()} tile checkpoints.",
+            flush=True,
+        )
+    return assembled, last_metadata
 
 
 def profile_diagnostics(
@@ -410,6 +951,8 @@ def plot_figure(
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
     args = parse_args()
     positive = (
         args.carrier_frequency_mhz,
@@ -427,6 +970,8 @@ def main() -> None:
         raise SystemExit("All physical and grid parameters must be finite and positive.")
     if args.iq_focus_chunk_pixels <= 0:
         raise SystemExit("--iq-focus-chunk-pixels must be positive.")
+    if args.tile_x_lines <= 0:
+        raise SystemExit("--tile-x-lines must be positive.")
     output = args.output_dir.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
 
@@ -443,7 +988,6 @@ def main() -> None:
     z_max = float(positions_mm[:, 2].max() + args.z_margin_mm) * 1e-3
     x_axis = regular_axis(x_min, x_max, args.x_spacing_mm * 1e-3)
     z_axis = regular_axis(z_min, z_max, args.z_spacing_mm * 1e-3)
-    points = regular_points(x_axis, z_axis)
     mv_configuration = MvConfiguration(
         temporal_half_window_samples=0,
         chunk_pixels=args.mv_chunk_pixels,
@@ -472,12 +1016,28 @@ def main() -> None:
         },
     }
     run_signature = stable_signature(configuration)
+    tile_root = output / "picmus_full_phantom_tiles" / run_signature[:16]
     if args.metadata_only:
         write_json(
             output / "picmus_full_phantom_metadata.json",
             {**configuration, "metadata_only": True, "signature": run_signature},
         )
         print(f"Validated full-phantom configuration: {output}")
+        return
+
+    if args.worker_stage is not None:
+        run_worker_stage(
+            args,
+            dataset=dataset,
+            angle_indices=angle_indices,
+            x_axis=x_axis,
+            z_axis=z_axis,
+            x_min=x_min,
+            x_max=x_max,
+            mv_configuration=mv_configuration,
+            run_signature=run_signature,
+            tile_root=tile_root,
+        )
         return
 
     diagnostic_rows = profile_diagnostics(
@@ -502,32 +1062,17 @@ def main() -> None:
 
     missing_methods = set(METHODS) - set(images)
     dmas_metadata = cache_metadata.get("dmas_filter")
-    if missing_methods:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
-        try:
-            import cupy as cp
-        except ImportError as error:
-            raise SystemExit("The full-phantom comparison requires CuPy and an NVIDIA GPU.") from error
-        cp.cuda.Device(0).use()
 
     non_mv_methods = set(METHODS) - {MV, DMAS}
     if missing_methods & non_mv_methods:
-        iq_images = reconstruct_iq_methods(
-            dataset,
-            angle_indices,
-            points,
-            grid_shape=(x_axis.size, z_axis.size),
-            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
-            f_number=args.f_number,
-            nsi_c=args.nsi_c,
-            mv_configuration=mv_configuration,
-            cp=cp,
-            label="full PICMUS phantom",
-            compute_mv=False,
-            focus_chunk_pixels=args.iq_focus_chunk_pixels,
-        )
-        reconstructed = canonicalize_images(
-            iq_images, (x_axis.size, z_axis.size)
+        reconstructed, _ = reconstruct_isolated_stage(
+            args,
+            stage="iq",
+            native_x=x_axis,
+            z_axis=z_axis,
+            methods=IQ_TILE_METHODS,
+            run_signature=run_signature,
+            tile_root=tile_root,
         )
         invalid = [
             method for method, image in reconstructed.items()
@@ -554,22 +1099,17 @@ def main() -> None:
         mv_x_axis = regular_axis(
             x_min, x_max, args.mv_x_spacing_mm * 1e-3
         )
-        mv_points = regular_points(mv_x_axis, z_axis)
-        mv_images = reconstruct_iq_methods(
-            dataset,
-            angle_indices,
-            mv_points,
-            grid_shape=(mv_x_axis.size, z_axis.size),
-            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
-            f_number=args.f_number,
-            nsi_c=args.nsi_c,
-            mv_configuration=mv_configuration,
-            cp=cp,
-            label="full PICMUS phantom MV grid",
-            focus_chunk_pixels=args.iq_focus_chunk_pixels,
+        mv_images, _ = reconstruct_isolated_stage(
+            args,
+            stage="mv",
+            native_x=mv_x_axis,
+            z_axis=z_axis,
+            methods=(MV,),
+            run_signature=run_signature,
+            tile_root=tile_root,
         )
         images[MV] = resample_regular_image(
-            mv_images[MV].reshape(mv_x_axis.size, z_axis.size),
+            mv_images[MV],
             mv_x_axis,
             z_axis,
             x_axis,
@@ -589,34 +1129,16 @@ def main() -> None:
         print("Checkpointed MV map.")
 
     if DMAS not in images:
-        dmas_x_axis = regular_axis(
-            x_min, x_max, args.dmas_x_spacing_mm * 1e-3
+        dmas_images, dmas_metadata = reconstruct_isolated_stage(
+            args,
+            stage="dmas",
+            native_x=x_axis,
+            z_axis=z_axis,
+            methods=(DMAS,),
+            run_signature=run_signature,
+            tile_root=tile_root,
         )
-        prepare_fdmas_gpu(cp)
-        filter_configuration = FdmasFilterConfiguration()
-        dmas_z, _ = fdmas_padded_axis(
-            float(z_axis[0]),
-            float(z_axis[-1]),
-            args.dmas_z_spacing_mm * 1e-3,
-            sound_speed_m_s=dataset.sound_speed_m_s,
-            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
-            filter_configuration=filter_configuration,
-        )
-        dmas_source, dmas_metadata = reconstruct_fdmas(
-            dataset,
-            angle_indices,
-            dmas_x_axis,
-            dmas_z,
-            carrier_frequency_hz=args.carrier_frequency_mhz * 1e6,
-            f_number=args.f_number,
-            filter_configuration=filter_configuration,
-            cp=cp,
-            label="full PICMUS phantom",
-            x_chunk_lines=args.dmas_x_chunk_lines,
-        )
-        images[DMAS] = resample_regular_image(
-            dmas_source, dmas_x_axis, dmas_z, x_axis, z_axis
-        )
+        images[DMAS] = dmas_images[DMAS]
         save_staged_cache(
             cache_path,
             cache_metadata_path,
@@ -649,6 +1171,13 @@ def main() -> None:
         "metadata_only": False,
         "publication_ready": True,
         "signature": run_signature,
+        "execution": {
+            "cuda_process_isolation": True,
+            "tile_x_lines": args.tile_x_lines,
+            "tile_cache_schema_version": TILE_CACHE_SCHEMA_VERSION,
+            "tile_cache_directory": str(tile_root.relative_to(output)),
+            "resume_policy": "reuse only signature-, axis-, and value-validated tiles",
+        },
         "profile_diagnostics": diagnostic_rows,
         "artifacts": {
             "figure": figure_path.name,

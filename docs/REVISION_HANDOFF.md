@@ -41,8 +41,10 @@ generation. It also runs the CF-DAS/MV/DMAS comparison and synchronized
 six-method timing benchmark.
 It is resumable; completed steps and valid conventional-comparison case caches
 are reused. The full-phantom step also checkpoints its non-MV, MV and DMAS
-stages independently. Use `--force` only when an intentional full rerun is
-required.
+stages independently. Its IQ and MV stages are split into validated 16-line
+lateral checkpoints, each evaluated in a fresh CUDA subprocess; an interrupted
+run resumes from the first missing tile. Use `--force` only when an intentional
+full rerun is required.
 
 On the WSL installation for which the Windows-provided CUDA driver library is
 not selected automatically, keep the working override used during setup:

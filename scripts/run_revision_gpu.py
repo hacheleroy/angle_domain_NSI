@@ -75,7 +75,13 @@ def step_definitions(
     root: Path, data_root: Path, output_root: Path, args: argparse.Namespace
 ) -> dict[str, dict[str, Any]]:
     python = sys.executable
-    common_env = {"CUDA_VISIBLE_DEVICES": str(args.device), "NSI_CUDA_DEVICE": str(args.device)}
+    common_env = {
+        "CUDA_VISIBLE_DEVICES": str(args.device),
+        "NSI_CUDA_DEVICE": str(args.device),
+        # Preserve the last completed checkpoint in tee logs if WSL or the
+        # CUDA virtualization layer terminates unexpectedly.
+        "PYTHONUNBUFFERED": "1",
+    }
     return {
         "theory": {
             "command": [

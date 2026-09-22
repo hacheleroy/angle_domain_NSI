@@ -216,6 +216,17 @@ directly and are not extracted from the resampled images.
 The full-phantom cache is staged, so a completed non-MV or MV reconstruction is
 retained if the later DMAS stage is interrupted.
 
+The large full-field IQ and MV stages additionally run as isolated lateral
+tiles (16 lines by default). Each missing tile starts a fresh CUDA process,
+validates every method, and is atomically checkpointed under
+`picmus_full_phantom_tiles/` before the next process starts. Rerunning the same
+command resumes from the first missing or invalid tile. This bounds each CUDA
+context below the successful PICMUS carotid workload and prevents a WSL/CUDA
+interruption from discarding the preceding tiles. Use `--tile-x-lines` only to
+reduce the per-process workload further; it does not change the beamforming
+definition or output grid. Worker output and the top-level GPU workflow are
+unbuffered so that `tee` logs retain the last completed checkpoint.
+
 ### CF-DAS, MV, and DMAS comparison
 
 The dedicated comparison preserves the established four-method studies and
