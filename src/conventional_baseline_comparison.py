@@ -418,28 +418,44 @@ def reconstruct_iq_methods(
         f_number=f_number,
         sound_speed_m_s=dataset.sound_speed_m_s,
     )
-    receive_time_gpu = cp.asarray(receive_time, dtype=cp.float32)
-    aperture_gpu = cp.asarray(aperture, dtype=cp.float32)
-    receive_sign_gpu = cp.asarray(receive_sign, dtype=cp.float32)
     angle_weights_gpu = cp.asarray(angular_weights, dtype=cp.float32)
     count = points_m.shape[0]
-    uniform = cp.zeros(count, dtype=cp.complex64)
-    receive_cf = cp.zeros(count, dtype=cp.complex64)
-    mv = cp.zeros(count, dtype=cp.complex64) if compute_mv else None
-    receive_null = cp.zeros(count, dtype=cp.complex64)
-    angle_null = cp.zeros(count, dtype=cp.complex64)
-
     chunk_pixels = count if focus_chunk_pixels is None else focus_chunk_pixels
-    for local_index, angle_rad in enumerate(selected_angles):
-        for begin in range(0, count, chunk_pixels):
-            end = min(begin + chunk_pixels, count)
+    method_order = [DAS, CF_DAS, RECEIVE_NSI, ANGLE_NSI]
+    if compute_mv:
+        method_order.append(MV)
+    output = {
+        method: np.empty(count, dtype=np.float32) for method in method_order
+    }
+    chunk_count = int(np.ceil(count / chunk_pixels))
+
+    # Transfer the delay/aperture tables batch by batch.  Large H2D transfers
+    # of these full-field tables can silently yield finite all-zero gathers on
+    # WSL/CuPy, whereas the same focused pixels are valid in small batches.
+    for chunk_index, begin in enumerate(range(0, count, chunk_pixels), start=1):
+        end = min(begin + chunk_pixels, count)
+        receive_time_gpu = cp.asarray(
+            receive_time[begin:end], dtype=cp.float32
+        )
+        aperture_gpu = cp.asarray(aperture[begin:end], dtype=cp.float32)
+        receive_sign_gpu = cp.asarray(
+            receive_sign[begin:end], dtype=cp.float32
+        )
+        chunk_size = end - begin
+        uniform = cp.zeros(chunk_size, dtype=cp.complex64)
+        receive_cf = cp.zeros(chunk_size, dtype=cp.complex64)
+        mv = cp.zeros(chunk_size, dtype=cp.complex64) if compute_mv else None
+        receive_null = cp.zeros(chunk_size, dtype=cp.complex64)
+        angle_null = cp.zeros(chunk_size, dtype=cp.complex64)
+
+        for local_index, angle_rad in enumerate(selected_angles):
             base, mask = focused_samples(
                 iq_gpu,
                 local_index,
                 float(angle_rad),
                 points_m[begin:end],
-                receive_time_gpu[begin:end],
-                aperture_gpu[begin:end],
+                receive_time_gpu,
+                aperture_gpu,
                 sampling_frequency_hz=dataset.sampling_frequency_hz,
                 sound_speed_m_s=dataset.sound_speed_m_s,
                 initial_time_s=dataset.initial_time_s,
@@ -447,38 +463,39 @@ def reconstruct_iq_methods(
                 cp=cp,
             )
             angle_das = cp.sum(base, axis=1)
-            uniform[begin:end] += angle_das
-            receive_cf[begin:end] += receive_cf_das(base, mask, xp=cp)
+            uniform += angle_das
+            receive_cf += receive_cf_das(base, mask, xp=cp)
             if compute_mv:
                 assert mv is not None
-                mv[begin:end] += capon_minimum_variance(
+                mv += capon_minimum_variance(
                     base,
                     mask,
-                    grid_shape=(end - begin, 1),
+                    grid_shape=(chunk_size, 1),
                     configuration=mv_configuration,
                     xp=cp,
                 )
-            receive_null[begin:end] += cp.sum(
-                base * receive_sign_gpu[begin:end], axis=1
-            )
-            angle_null[begin:end] += (
-                angle_weights_gpu[local_index] * angle_das
-            )
-        if (local_index + 1) % 5 == 0 or local_index + 1 == len(selected_angles):
-            print(f"  {label}: IQ methods {local_index + 1}/{len(selected_angles)} angles")
+            receive_null += cp.sum(base * receive_sign_gpu, axis=1)
+            angle_null += angle_weights_gpu[local_index] * angle_das
 
-    output_gpu = {
-        DAS: cp.abs(uniform),
-        CF_DAS: cp.abs(receive_cf),
-        RECEIVE_NSI: nsi_envelope(uniform, receive_null, nsi_c, xp=cp),
-        ANGLE_NSI: nsi_envelope(uniform, angle_null, nsi_c, xp=cp),
-    }
-    if compute_mv:
-        assert mv is not None
-        output_gpu[MV] = cp.abs(mv)
-    cp.cuda.Stream.null.synchronize()
-    output = {method: cp.asnumpy(values) for method, values in output_gpu.items()}
-    del iq_gpu, receive_time_gpu, aperture_gpu, receive_sign_gpu
+        output_gpu = {
+            DAS: cp.abs(uniform),
+            CF_DAS: cp.abs(receive_cf),
+            RECEIVE_NSI: nsi_envelope(uniform, receive_null, nsi_c, xp=cp),
+            ANGLE_NSI: nsi_envelope(uniform, angle_null, nsi_c, xp=cp),
+        }
+        if compute_mv:
+            assert mv is not None
+            output_gpu[MV] = cp.abs(mv)
+        cp.cuda.Stream.null.synchronize()
+        for method, values in output_gpu.items():
+            output[method][begin:end] = cp.asnumpy(values)
+        if chunk_index % 10 == 0 or chunk_index == chunk_count:
+            print(
+                f"  {label}: IQ focus batch {chunk_index}/{chunk_count} "
+                f"({end}/{count} pixels, {len(selected_angles)} angles)"
+            )
+
+    del iq_gpu
     cp.get_default_memory_pool().free_all_blocks()
     return output
 
