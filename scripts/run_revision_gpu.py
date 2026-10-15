@@ -417,6 +417,10 @@ def main() -> None:
     root = Path(__file__).resolve().parents[1]
     data_root = args.data_root.expanduser().resolve()
     output_root = args.output_root.expanduser().resolve()
+    frozen_roots = (root / "results/reported", root / "results/reference")
+    if any(output_root == frozen or frozen in output_root.parents or output_root in frozen.parents
+           for frozen in frozen_roots):
+        raise SystemExit("Use a generated output directory outside the frozen results/reference records.")
     output_root.mkdir(parents=True, exist_ok=True)
     definitions = step_definitions(root, data_root, output_root, args)
     steps = tuple(part.strip() for part in args.steps.split(",") if part.strip())

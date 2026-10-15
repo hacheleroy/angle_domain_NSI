@@ -7,8 +7,9 @@ authors:
     given-names: Henri
     orcid: "https://orcid.org/0009-0009-7215-6796"
     affiliation: "Ecole Polytechnique Federale de Lausanne (EPFL)"
-# Versioned releases keep their own citation records. This branch contains
-# the final-paper snapshot of 2026-10-15, pending the next software release.
+version: "1.2.0"
+date-released: "2026-10-15"
+repository-code: "https://github.com/hacheleroy/angle_domain_NSI"
 url: "https://github.com/hacheleroy/angle_domain_NSI"
 preferred-citation:
   type: article

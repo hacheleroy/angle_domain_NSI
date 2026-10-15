@@ -1,7 +1,16 @@
-# Validated final-paper replay environment: CPython 3.12, Linux.
-numpy==2.3.5
-scipy==1.17.0
-matplotlib==3.10.8
+# Complete validated CPU environment: CPython 3.12, Linux, 15 October 2026.
+# Includes transitive rendering dependencies; basic angle_nsi use only needs NumPy.
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
 h5py==3.16.0
+kiwisolver==1.5.1
+matplotlib==3.10.8
+numpy==2.3.5
+packaging==26.3
 pillow==12.3.0
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+scipy==1.17.0
+six==1.17.0
 threadpoolctl==3.6.0

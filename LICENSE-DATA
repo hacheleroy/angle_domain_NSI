@@ -1,6 +1,6 @@
 This license applies to the non-software content of this repository:
 `results/`, `docs/`, and this repository's documentation, including
-README.md. The code under `src/` and `tests/` is licensed separately
+README.md. The code under `src/`, `scripts/`, `tests/` and the Python examples is licensed separately
 under the MIT License in `LICENSE`.
 
 

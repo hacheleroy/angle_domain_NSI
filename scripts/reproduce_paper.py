@@ -13,7 +13,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PAPER = ROOT / "paper"
+REFERENCE = ROOT / "results/reference"
 INPUTS = ROOT / "results/reported/paper_inputs"
 
 
@@ -22,13 +22,10 @@ def sha256(path: Path) -> str:
 
 
 def read_manifest() -> dict:
-    return json.loads((PAPER / "asset_manifest.json").read_text())
+    return json.loads((REFERENCE / "asset_manifest.json").read_text())
 
 
 def verify_sources(manifest: dict) -> None:
-    for name, expected in manifest["source_files"].items():
-        if sha256(PAPER / name) != expected:
-            raise ValueError(f"Published source changed: {name}")
     for name, expected in manifest["numerical_inputs"].items():
         if sha256(INPUTS / name) != expected:
             raise ValueError(f"Frozen numerical input changed: {name}")
@@ -65,7 +62,7 @@ def verify_assets(output: Path, manifest: dict, *, preserve_original_metadata: b
         metadata_only.append(name)
         if preserve_original_metadata:
             temporary = target.with_name(target.name + ".tmp")
-            temporary.write_bytes((PAPER / name).read_bytes())
+            temporary.write_bytes((REFERENCE / name).read_bytes())
             temporary.replace(target)
     return metadata_only
 
@@ -74,16 +71,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "results/generated/paper_assets", help="Output directory for frozen CPU replay.")
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--check-only", action="store_true", help="Verify the frozen paper/source inputs without rebuilding.")
+    mode.add_argument("--check-only", action="store_true", help="Verify frozen numerical inputs and reference assets without rebuilding.")
     mode.add_argument("--from-raw", action="store_true", help="Run all public-data analyses, including new seven-target and inclusion stages; requires CUDA.")
     parser.add_argument("--device", default="0")
     parser.add_argument("--data-root", type=Path, default=ROOT / "data")
     args = parser.parse_args()
-    manifest = read_manifest()
-    verify_sources(manifest)
     if args.check_only:
-        verify_assets(PAPER, manifest, preserve_original_metadata=False)
-        print("Published sources, numerical inputs and all 25 used assets verified.")
+        manifest = read_manifest()
+        verify_sources(manifest)
+        verify_assets(REFERENCE, manifest, preserve_original_metadata=False)
+        print("Frozen numerical inputs and all 25 reference assets verified.")
         return
     if args.from_raw:
         import run_revision_gpu
@@ -97,8 +94,11 @@ def main() -> None:
         ], cwd=ROOT, check=True)
         return
 
+    manifest = read_manifest()
+    verify_sources(manifest)
     output = args.output_dir.expanduser().resolve()
-    if any(output == frozen or frozen in output.parents for frozen in (PAPER, INPUTS)):
+    if any(output == frozen or frozen in output.parents or output in frozen.parents
+           for frozen in (REFERENCE, ROOT / "results/reported")):
         parser.error("Select a generated output directory, not a frozen source directory.")
     subprocess.run([
         sys.executable, str(ROOT / "scripts/materialize_revision_assets.py"),

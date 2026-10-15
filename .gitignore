@@ -48,14 +48,3 @@ Thumbs.db
 
 # --- Jupyter (in case notebooks are added later) ----------------------------------
 .ipynb_checkpoints/
-
-# LaTeX build products; paper/orcid.pdf is an input asset.
-paper/*.aux
-paper/*.bbl
-paper/*.blg
-paper/*.fdb_latexmk
-paper/*.fls
-paper/*.log
-paper/*.out
-paper/main.pdf
-paper/supplementary_material.pdf

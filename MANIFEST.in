@@ -1,0 +1,3 @@
+include LICENSE LICENSE-DATA CITATION.cff CHANGELOG.md
+recursive-include examples *.py *.md *.png
+recursive-include docs *.md

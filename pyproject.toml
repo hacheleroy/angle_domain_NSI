@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "angle-nsi"
+version = "1.2.0"
+description = "Angle-domain null subtraction imaging from complex per-angle beamformed images"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE", "LICENSE-DATA"]
+authors = [{name = "Henri Leroy"}]
+dependencies = ["numpy>=1.26,<3"]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Image Processing",
+  "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+demo = ["matplotlib>=3.8,<4"]
+gpu = [
+  "numpy==2.2.6", "matplotlib==3.10.9", "scipy==1.17.0",
+  "h5py==3.16.0", "pillow==12.3.0", "threadpoolctl==3.6.0",
+  "cupy-cuda12x[ctk]==14.1.1", "mach-beamform==0.1.3",
+  "imageio[ffmpeg]==2.38.1", "PyMUST==0.1.9",
+]
+
+[project.scripts]
+angle-nsi = "angle_nsi.cli:main"
+
+[project.urls]
+Repository = "https://github.com/hacheleroy/angle_domain_NSI"
+Paper = "https://arxiv.org/abs/2608.18252"
+Issues = "https://github.com/hacheleroy/angle_domain_NSI/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["angle_nsi*"]

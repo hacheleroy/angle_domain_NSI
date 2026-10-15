@@ -5,12 +5,12 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -29,18 +29,23 @@ class FinalPaperTests(unittest.TestCase):
     def test_frozen_inputs_and_used_assets_are_intact(self):
         manifest = replay.read_manifest()
         replay.verify_sources(manifest)
-        replay.verify_assets(ROOT / "paper", manifest, preserve_original_metadata=False)
+        replay.verify_assets(replay.REFERENCE, manifest, preserve_original_metadata=False)
         self.assertEqual(manifest["methods"], list(METHODS))
         self.assertEqual(len(manifest["assets"]), 25)
 
-    def test_manifest_contains_only_latex_referenced_figures_and_tables(self):
-        sources = "\n".join((ROOT / "paper" / name).read_text() for name in ("main.tex", "supplementary_material.tex"))
-        figures = set(re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", sources))
-        tables = {name + ".tex" for name in re.findall(r"\\input\{(table_[^}]+)\}", sources)}
-        observed = set(replay.read_manifest()["assets"])
-        self.assertEqual(observed, figures | tables | {"revision_results.tex"})
-        self.assertEqual(len(figures), 15)
-        self.assertEqual(len(tables), 9)
+    def test_reference_archive_contains_the_declared_asset_set(self):
+        manifest = replay.read_manifest()
+        names = set(manifest["assets"])
+        observed = {
+            p.relative_to(replay.REFERENCE).as_posix()
+            for p in replay.REFERENCE.rglob("*")
+            if p.is_file() and p.suffix in {".png", ".tex"}
+        }
+        self.assertEqual(observed, names)
+        self.assertEqual(sum(n.endswith(".png") for n in names), 15)
+        self.assertEqual(sum(Path(n).name.startswith("table_") for n in names), 9)
+        self.assertFalse((replay.REFERENCE / "main.tex").exists())
+        self.assertNotIn("source_files", manifest)
 
     def test_all_42_psf_measurements_recompute_from_saved_arrays(self):
         directory = replay.INPUTS / "seven_target_metrics"
@@ -102,6 +107,24 @@ class FinalPaperTests(unittest.TestCase):
             self.assertTrue(report["all_25_assets_byte_identical"])
             for name, row in replay.read_manifest()["assets"].items():
                 self.assertEqual(replay.sha256(Path(directory) / name), row["sha256"])
+
+    def test_raw_branch_does_not_require_a_reference_manifest(self):
+        runner = SimpleNamespace(DEFAULT_STEPS=("theory", "manuscript-assets"))
+        with patch.object(sys, "argv", ["reproduce_paper.py", "--from-raw"]), \
+             patch.dict(sys.modules, {"run_revision_gpu": runner}), \
+             patch.object(replay, "read_manifest", side_effect=AssertionError("raw branch read reference")), \
+             patch.object(replay.subprocess, "run") as run:
+            replay.main()
+        self.assertIn("theory,robustness,manuscript-assets", run.call_args.args[0])
+
+    def test_replay_refuses_to_overwrite_frozen_results(self):
+        for destination in (replay.REFERENCE, replay.INPUTS, ROOT / "results/reported/robustness"):
+            with self.subTest(destination=destination), \
+                 patch.object(sys, "argv", ["reproduce_paper.py", "--output-dir", str(destination)]), \
+                 patch.object(replay.subprocess, "run") as run, \
+                 self.assertRaises(SystemExit):
+                replay.main()
+            run.assert_not_called()
 
 
 if __name__ == "__main__":

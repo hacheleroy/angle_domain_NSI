@@ -1,0 +1,12 @@
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+Method & Median (ms) & Relative to DAS & Leading order per pixel/angle \\
+\midrule
+DAS & 0.073 & 1.00 & $O(M)$ \\
+CF-DAS & 6.395 & 87.96 & $O(M)$ \\
+MV & 416.692 & 5731.34 & $O((2K+1)(M-L+1)L^2+L^3)$ \\
+DMAS & 4.175 & 57.42 & $O(M^2)$ direct; $O(M)$ exact identity \\
+Receive-NSI & 0.737 & 10.13 & $O(M)$ \\
+Angle-NSI & 0.372 & 5.12 & $O(M)$ \\
+\bottomrule
+\end{tabular}

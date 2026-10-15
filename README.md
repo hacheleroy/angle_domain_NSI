@@ -1,145 +1,183 @@
 # Angle-domain null subtraction imaging
 
-Code and frozen numerical inputs for Henri Leroy,
-"Angle-domain null subtraction imaging from beamformed plane-wave data".
-[Preprint: arXiv:2608.18252](https://arxiv.org/abs/2608.18252).
+Python implementation of Henri Leroy's **Angle-domain null subtraction imaging
+from beamformed plane-wave data**. [Paper: arXiv:2608.18252](https://arxiv.org/abs/2608.18252).
+Release **v1.2.0** preserves the final 15 October 2026 numerical snapshot and
+adds a small interface for applying Angle-NSI to your own images.
 
-The final numerical-results snapshot is **15 October 2026**. Manuscript
-sources, compiled documents and rendered publication assets are maintained
-separately; the `paper/` directory is no longer included in the current checkout.
-The earlier `v1.1.0` release is preserved as the 17 September revision snapshot; it does
-not contain the final figure/table reorganization.
+Angle-NSI operates on **complex receive-beamformed images retained separately
+for each transmit angle**. The core calculation runs on NumPy arrays without
+CUDA, channel RF data, MACH or PyMUST. It requires the angular information and
+relative phase before coherent compounding, envelope detection and log compression.
 
-## Use the frozen numerical inputs on a CPU
+## Install and try the CPU example
 
-Use CPython 3.12 on Linux or WSL:
+Clone the repository and use Python 3.10 or newer. Python 3.12 is used for the
+locked publication-replay environment.
+
+```bash
+git clone https://github.com/hacheleroy/angle_domain_NSI.git
+cd angle_domain_NSI
+python -m venv .venv
+```
+
+On Linux/WSL:
+
+```bash
+source .venv/bin/activate
+python -m pip install ".[demo]"
+python examples/quickstart.py
+```
+
+On Windows PowerShell, activation is optional:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install ".[demo]"
+.\.venv\Scripts\python.exe examples\quickstart.py
+```
+
+The example creates a small complex per-angle stack, linear DAS/Angle-NSI
+envelopes and `results/generated/quickstart/quickstart.png`. Its paired-angle
+phase model illustrates the operation; the paper's quantitative experiments
+use the RF pipelines below. Each displayed image/profile is normalized
+independently; the saved linear arrays retain the c-dependent amplitude scale.
+
+![CPU example: DAS, Angle-NSI and central lateral profiles](examples/quickstart_preview.png)
+
+For the NumPy-only API and CLI, install with `python -m pip install .`.
+`[demo]` adds Matplotlib. The package is installed from this repository;
+no PyPI publication is assumed.
+
+## Apply Angle-NSI to your images
+
+```python
+import numpy as np
+from angle_nsi import angle_nsi
+
+# images: complex64 or complex128, shape (depth, lateral, angle)
+# angles_deg: increasing, symmetric steering angles in degrees
+angle_envelope = angle_nsi(images, angles_deg, c=0.05, angle_axis=-1)
+das_envelope = np.abs(images.sum(axis=-1))
+```
+
+The angle axis is removed; all other axes, including frame axes, are preserved.
+The output is a nonnegative **linear envelope**, with no division by angle count
+or c. NumPy inputs return NumPy results; optional CuPy inputs stay on the GPU.
+See [input format and amplitude conventions](docs/INPUT_FORMAT.md) for shape,
+phase, symmetry, weighting and output requirements.
+
+To use an NPZ file, save `images` and `angles_deg` and run:
+
+```bash
+angle-nsi my_images.npz --output my_envelopes.npz --c 0.05 --angle-axis -1
+```
+
+`python -m angle_nsi` provides the same interface. On Windows, the corresponding
+venv command is `.\.venv\Scripts\python.exe -m angle_nsi ...`.
+The output contains `das`, `angle_nsi`, c and angle metadata; coordinate arrays
+`x_mm`, `z_mm` and `time_s` are preserved when supplied. See
+[the examples](examples/README.md) for a complete input-file recipe.
+
+Symmetric nonuniform angle sets are supported. Asymmetric or incomplete sets
+require explicitly redesigned null weights and are rejected by this interface.
+An optional zero-degree transmission receives zero null weight.
+
+A narrower apparent lateral response can accompany weaker targets and poorer
+target/background separation. c is a task-dependent parameter; 0.05 is an
+example setting, not a universal optimum. High-resolution power Doppler is a
+promising intended use. The code cannot recover angular phase information
+from a compounded or displayed B-mode image.
+
+## Reproduce the accepted figures, tables and measurements
+
+The Git checkout includes frozen numerical inputs and a separate reference
+archive under `results/`. Manuscript LaTeX, compiled documents and reviewer
+correspondence are maintained separately.
+
+On Linux/WSL with CPython 3.12, use a separate environment for exact replay:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-cpu.txt
+python -m pip install -e . -r requirements-test.txt
+python scripts/reproduce_paper.py --check-only
+python scripts/reproduce_paper.py
+python -m unittest discover -s tests -v
 ```
 
-The arrays, profiles, numerical summaries and timing records remain in
-[`results/reported/paper_inputs/`](results/reported/paper_inputs/).
-They support numerical checks and plotting without the manuscript sources.
-For example, recompute the inclusion gCNR and its ROI figure from the saved
-six-method phantom maps, without external RF data or a GPU:
+`requirements-cpu.txt` locks direct and transitive CPU dependencies. Replay
+writes `results/generated/paper_assets/` and checks **25 accepted assets**:
+five main figures, ten supplementary figures, nine table fragments and one
+numerical-macro file. Eight figures are redrawn from frozen arrays/measurements;
+seven GPU-rendered figures are restored from reference images. Pixel-identical
+redraws retain the original PNG metadata bytes. The generated report lists
+redrawn/restored figures and metadata normalization explicitly.
 
-```bash
-python src/picmus_inclusion_metrics.py \
-  --cache results/reported/paper_inputs/picmus_full_phantom/picmus_full_phantom_cache.npz \
-  --output-dir results/generated/phantom_inclusion
-```
+Tests remeasure all 42 method/target PSFs and their seven-target means/sample
+SDs, check the saved CPU/GPU agreement, and reproduce the complete asset set.
+[The reference manifest](results/reference/asset_manifest.json) records all
+asset and numerical-input checksums. [Reproduction details](docs/REPRODUCIBILITY.md)
+explain these boundaries and the measurement definitions.
 
-Run the NSI algebra and PSF measurement helper tests with:
-
-```bash
-python -m unittest discover -s tests -p "test_nsi_identities.py" -v
-python -m unittest discover -s tests -p "test_psf_metrics.py" -v
-```
-
-Exact replay of all 25 publication assets depended on the removed
-`paper/asset_manifest.json` and archived rendered figures. Consequently,
-`scripts/reproduce_paper.py` (including `--check-only` and `--from-raw`) and
-the materializer's `--snapshot` mode require that archive and cannot complete
-from the current checkout alone. The paper-source and complete-replay tests
-in `tests/test_final_paper.py`, plus the existing **Paper reproducibility**
-GitHub Actions workflow, also retain that dependency and need a separate
-maintenance update. Full test discovery therefore does not currently pass.
-The original exact-replay setup is retained in the
-[15 October checkpoint](https://github.com/hacheleroy/angle_domain_NSI/tree/44f90fc598969bdeaf78f858252477d3219b7cbc).
-
-## Main figures
-
-| Figure | Contents | Generation path |
+| Main figure | Contents | Generation code |
 |---|---|---|
-| 1 | Simulated point target, six methods and lateral profiles | `src/simulation_six_method_comparison.py`, `src/paper_replot.py` |
-| 2 | Complete experimental PICMUS phantom, six unannotated maps | `src/picmus_full_phantom_comparison.py` |
+| 1 | Simulated point target, six methods and profiles | `src/simulation_six_method_comparison.py`, `src/paper_replot.py` |
+| 2 | Full experimental PICMUS phantom | `src/picmus_full_phantom_comparison.py` |
 | 3 | MBTrace power Doppler | `src/doppler_mbtrace.py` |
-| 4 | Longitudinal and cross-sectional PICMUS carotid acquisitions | `src/conventional_baseline_comparison.py` |
-| 5 | End-to-end and post-delay timing | `src/benchmark_scaling.py`, `src/benchmark_conventional.py`, `scripts/materialize_revision_assets.py` |
+| 4 | PICMUS longitudinal/cross-sectional carotid views | `src/conventional_baseline_comparison.py` |
+| 5 | End-to-end and post-delay computation | `src/benchmark_scaling.py`, `src/benchmark_conventional.py` |
 
-Table 2 uses the mean and sample SD of seven local target measurements for
-width and peak/background, plus one fixed inclusion/background ROI pair for
-gCNR. Supplementary table S7 lists all 42 individual cases. The inclusion
-measurement can be reproduced with the CPU command above.
-
-The displayed method names are **DAS, CF-DAS, MV, DMAS, Receive-NSI and
-Angle-NSI**. CF-DAS uses the ordinary receive-channel coherence factor per
-transmit angle. DMAS uses delayed RF pair products and the fixed band-pass
-around twice the carrier frequency. USTB is an implementation reference; all
-reconstructions use the Python/NumPy/CuPy pipeline.
+The six comparison methods are DAS, CF-DAS, MV, DMAS, Receive-NSI and Angle-NSI.
+CF-DAS uses the receive-channel coherence factor per angle. DMAS uses delayed
+RF pair products and a fixed band-pass around twice the carrier frequency.
+USTB is an implementation reference; the reconstructions use Python/NumPy/CuPy.
 
 ## Recompute from public RF data
 
-Full reconstruction requires a CUDA-capable NVIDIA GPU and the additional
-simulation/data dependencies in `requirements.txt`. The recorded GPU study
-used Python 3.14.4, NumPy 2.2.6, CuPy 14.1.1, Matplotlib 3.10.9 and
-MACH-beamform 0.1.3 on an RTX A2000. The CPU rendering environment above is
-separate and pinned to the environment used for the final presentation edits.
+Full simulation, acquisition reconstruction and timing require a CUDA-capable
+NVIDIA GPU and the additional dependencies in `requirements.txt`. Use a separate
+environment from CPU replay, following [GPU setup and smoke checks](docs/GPU_SETUP.md).
+The historical timing study used an RTX A2000; the software versions captured
+by each study are retained in its JSON records.
 
 ```bash
 python -m pip install -r requirements.txt
+python -m pip install . --no-deps
 python scripts/fetch_datasets.py --dataset all
-python scripts/run_revision_gpu.py --device 0 \
-  --steps theory,robustness,point-target,simulation-six-method,mbtrace,carotid,experimental-psf,picmus-full-phantom,conventional-baselines,seven-target-metrics,phantom-inclusion,timing,conventional-timing,manuscript-assets
+python scripts/reproduce_paper.py --from-raw --device 0
 ```
 
-This invokes the analysis runner directly, without the removed paper
-manifest. New analysis outputs go to `results/generated/revision/`; the
-final materialization stage writes figures and LaTeX table fragments to
-`results/generated/revision/manuscript_assets/`. These generated fragments
-can be imported into a separately maintained manuscript project.
+The Open-NSI Box share may require a manual `MBTrace.mat` download. Locations,
+source links and checksums are in [data/README.md](data/README.md).
+New outputs go to `results/generated/revision/`, with figure/table fragments
+in `manuscript_assets/`. The workflow includes robustness, grid convergence,
+six-method simulation, MBTrace, carotid, full phantom, seven-target measurements,
+inclusion gCNR and both timing boundaries. WSL stages retain isolated validated
+checkpoints; `--force` is available in `scripts/run_revision_gpu.py` for reruns.
 
-Data locations and checksums are documented in [`data/README.md`](data/README.md).
-The Open-NSI Box share can require a manual `MBTrace.mat` download; put the
-file at `data/Open-NSI/Basic/data/MBTrace.mat` before fetching/verifying inputs.
-On the WSL setup that needs the Windows CUDA library first in the search path:
+Fresh reconstructions and timings depend on hardware and software. The CPU
+reference replay checks the accepted artifacts exactly. Full CUDA/RF execution
+is outside CPU CI; the maintenance release validates CPU behavior, packaging
+and replay without claiming a new end-to-end GPU run.
 
-```bash
-export LD_LIBRARY_PATH=/usr/lib/wsl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-```
-
-The raw-data workflow includes theory, angular/perturbation robustness,
-point-target simulation and grid convergence, six-method simulation, MBTrace,
-carotid, the full PICMUS phantom, seven-target local measurements, inclusion
-gCNR and both timing boundaries. The seven-target stage uses the validated
-NumPy/SciPy CPU backend, with two workers by default. It checks the central
-target against saved GPU profiles before reconstructing all seven targets.
-The final materializer emits the current figure/table set without the removed
-point markers, diagnostic panel, duplicate timing figure or old single-target
-comparison table.
-
-Large PICMUS IQ/MV stages retain isolated, validated lateral checkpoints for
-WSL. Steps resume from completed outputs; `--force` is available through
-`scripts/run_revision_gpu.py` for an intentional rerun. New run manifests
-record installed package versions. Future MBTrace runs also save display
-arrays for CPU figure regeneration.
-
-A fresh raw-data run produces new floating-point reconstructions and timing
-samples. Wall-clock times depend on the GPU, driver and software. This path
-reruns the acquisition-specific calculations; it does not verify byte-identical
-agreement with the separately maintained publication assets. The full CUDA
-workflow is not exercised by CPU CI.
-
-## Layout and provenance
+## Layout, licenses and citation
 
 ```text
+src/angle_nsi/                   Installable core API and NPZ CLI
+src/                            Acquisition and comparison scripts
+examples/                       CPU quick start and own-data recipe
+results/reference/              Accepted figure/table references and checksums
 results/reported/paper_inputs/   Frozen numerical inputs for the final paper
-results/reported/                Earlier release records, retained for provenance
-results/generated/               New analyses and generated assets (ignored by Git)
-src/                             Beamforming, measurement and plotting modules
-scripts/                         Data acquisition and workflow entry points
-tests/                           CPU helpers, measurements and legacy paper checks
-docs/                            Reproduction protocol and historical validation notes
+results/reported/                Earlier release records and shared robustness data
+results/generated/               New outputs, ignored by Git
+scripts/                         Data acquisition and reproduction entry points
+tests/                           API, algebra, measurement and publication regressions
+docs/                            Input specification, environments and reproduction
 ```
 
-See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for measurement sources
-and analysis definitions. Its exact-replay instructions, along with
-`results/README.md`, describe the earlier checkout containing `paper/`;
-use this README for the current commands and limitations.
-External RF datasets are not redistributed. Code uses the MIT license;
-committed result records and generated scientific assets use CC BY 4.0.
-Citation metadata are in `CITATION.cff`; please cite the paper and the relevant
-PICMUS, Open-NSI, PyMUST/MUST, MACH and baseline-method references.
+Code is licensed under MIT. Committed result records, generated scientific
+assets and documentation use CC BY 4.0; see [LICENSE](LICENSE) and
+[LICENSE-DATA](LICENSE-DATA). External RF datasets retain their source terms
+and are not redistributed. Citation metadata are in [CITATION.cff](CITATION.cff).
+Please cite the article and the relevant PICMUS, Open-NSI, PyMUST/MUST, MACH
+and baseline-method references when using those components.

@@ -1,22 +1,31 @@
 # Result records
 
-The final 15 October 2026 paper uses the frozen numerical inputs in
-`reported/paper_inputs/` and the used figures/tables in `../paper/`.
-`paper/asset_manifest.json` is the authoritative source/checksum map.
+`reference/` contains the 25 accepted figure/table/macro assets for the final
+15 October 2026 snapshot. `reference/asset_manifest.json` records their
+checksums, the numerical inputs and the shared robustness records.
+`reported/paper_inputs/` contains the frozen maps, profiles, scalar summaries
+and timing repetitions used for this snapshot.
 
-Run `python scripts/reproduce_paper.py` to regenerate and verify the complete
-25-asset paper set without CUDA. New outputs go to `generated/paper_assets/`.
-The replay report distinguishes redrawn plots from archived rendered panels.
+From the repository root, in the locked CPython 3.12 Linux environment:
 
-The other `reported/` subdirectories and manifests preserve the earlier
-September release and revision runs. They are historical records and are not
-the final paper's complete result set. The robustness CSVs remain shared with
-the final paper and are explicitly selected by the asset materializer.
-Legacy method labels in original records are translated through
-`src/method_names.py`; the six display names are DAS, CF-DAS, MV, DMAS,
-Receive-NSI and Angle-NSI.
+```bash
+python scripts/reproduce_paper.py --check-only
+python scripts/reproduce_paper.py
+```
 
-`exploratory/` contains analyses outside the manuscript claims.
-`generated/` is ignored by Git so new calculations cannot silently overwrite
-the frozen publication inputs. External RF data remain outside the result
-snapshot and are acquired using `scripts/fetch_datasets.py`.
+Outputs go to `generated/paper_assets/`. Eight figures are redrawn and seven
+restored from references; nine tables and one numerical-macro file are
+regenerated. Pixel-identical PNG redraws retain reference metadata bytes.
+The generated report identifies these operations. Manuscript sources are
+maintained separately and are unnecessary for replay.
+
+Other `reported/` subdirectories preserve earlier September runs and their
+manifests. Their records are historical, except shared robustness files
+explicitly selected and checksummed by the reference manifest. Legacy method
+labels are translated through `src/method_names.py`.
+
+`exploratory/` holds analyses outside the manuscript claims. `generated/` is
+ignored by Git and receives new CPU examples, reanalyses, RF reconstructions
+and asset outputs. Frozen references and reported records must not be silently
+overwritten. External RF data are acquired separately using
+`scripts/fetch_datasets.py` and remain subject to their source terms.

@@ -1,6 +1,6 @@
 # NSI validation protocol
 
-> Historical validation record. The final 15 October 2026 paper workflow is documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+> Historical validation record. Current v1.2.0 entry points, reference replay and validation boundaries are documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md). Commands and status below describe the historical study.
 
 These scripts reproduce the synchronized timing benchmark and robustness analyses reported in the manuscript and supplementary material. 
 

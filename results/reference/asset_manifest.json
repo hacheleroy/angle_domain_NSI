@@ -1,0 +1,258 @@
+{
+  "snapshot_date": "2026-10-15",
+  "title": "Angle-domain null subtraction imaging from beamformed plane-wave data",
+  "methods": [
+    "DAS",
+    "CF-DAS",
+    "MV",
+    "DMAS",
+    "Receive-NSI",
+    "Angle-NSI"
+  ],
+  "assets": {
+    "figures/figure1_simulation_six_method.png": {
+      "sha256": "74acb1a610db3d61497279628192e2590785c342fdec3e05b116e5871a4100f4",
+      "rgba_sha256": "6d24a0212d808adb1e4718411e87a8c2a9c0e87a1eb5c577c5e08843acbec86f",
+      "dimensions": [
+        3237,
+        2464
+      ]
+    },
+    "figures/figure2_picmus_full_phantom_six_method.png": {
+      "sha256": "62f2486ece45f86ea737b11761c035f97e9e8965fea3109e3f8c6c604f91a3fb",
+      "rgba_sha256": "468de2eeb7abf8a4c6860a56cb533d954bc9d84fc1008038cc0ee025308c9d39",
+      "dimensions": [
+        3090,
+        2434
+      ]
+    },
+    "figures/figure3_microbubble_power_doppler.png": {
+      "sha256": "f0c8658535e9f2af606de71dc4b528874044ee04fac34a14ad1f250c93b5f8a6",
+      "rgba_sha256": "70b3ef051f296fc2b1831172d1e16d0717c8980ced7b936e8376bedf446de3bf",
+      "dimensions": [
+        4561,
+        1523
+      ]
+    },
+    "figures/figure4_carotid_six_method.png": {
+      "sha256": "0be7d5f3526dbeaac476c56b715133bbe5857aa390d61a1cc3de82d2e0b63ac6",
+      "rgba_sha256": "7f60b17cc51ff5d5c2f34006111172ab83ebb3ae7c3348243f0258ee8aa66459",
+      "dimensions": [
+        3327,
+        1554
+      ]
+    },
+    "figures/figure5_computation_benchmark.png": {
+      "sha256": "be471b60a57a80665e9e19394f158cc6949330edffcfc2a4232eb68645ded681",
+      "rgba_sha256": "34e35f4914d3c4005cfad428dd8bafa6efa8fbaae44f0ec92b6945dbc499b378",
+      "dimensions": [
+        2762,
+        2071
+      ]
+    },
+    "revision_results.tex": {
+      "sha256": "86cc3c50ea4dda47a6b04b18628291c696f1b0f960f41bf5e97c4c4d18728393"
+    },
+    "supplementary/figureS13_picmus_inclusion_rois.png": {
+      "sha256": "c52a694ad113c85c9eb1b16459c6bcc85debec343dde8092a0a764b4e9f9b9d7",
+      "rgba_sha256": "4daf970acfb536c7a082ee4dc40df0ed34b946ae0de485707d7500419bc1827a",
+      "dimensions": [
+        2488,
+        949
+      ]
+    },
+    "supplementary/figureS1_angle_sweeps.png": {
+      "sha256": "083b77654992101d95a45dfd52798a03314406133562f552e13cd695da63a635",
+      "rgba_sha256": "4f1b415031e9d673da62b03ce210bbe066dd26b981e3850c2db1a42584ee1c0d",
+      "dimensions": [
+        3332,
+        2434
+      ]
+    },
+    "supplementary/figureS1_angular_null_theory.png": {
+      "sha256": "763d106c83ceca31880881e092ea541e779cbb80d539c34f29761a85d3692341",
+      "rgba_sha256": "c23944e6e172a483844ac2b815bdc69b6b45629994ac5defad760cc615b83afd",
+      "dimensions": [
+        2522,
+        991
+      ]
+    },
+    "supplementary/figureS2_noise_phase_sweeps.png": {
+      "sha256": "6b1e16f9369339feba88390e9dff93f3a86c749eff6eabe3bc9a6d057da3f99b",
+      "rgba_sha256": "54856976ab9dd6a6170bdf257ebd632fb5b5198c8e774d893bc329c0ff963772",
+      "dimensions": [
+        3334,
+        1474
+      ]
+    },
+    "supplementary/figureS3_spatial_psf.png": {
+      "sha256": "99121ec30585c7377d321997336a67939df336e954bd0337c9a2ad62fd7f9ea4",
+      "rgba_sha256": "bd14831e8585cae72962bbf3a3ddc4e5c6a59381bef83937c6e1de7855a32dc9",
+      "dimensions": [
+        2584,
+        1534
+      ]
+    },
+    "supplementary/figureS5_point_target_c_sensitivity.png": {
+      "sha256": "c44881faa03f80c316090e52eefd03729608b64d8bb85892077896c4ece0a46e",
+      "rgba_sha256": "47a662f8c216f6e205152ba10c7487f526155fd21cdf65a94b7619320b98d581",
+      "dimensions": [
+        2495,
+        1054
+      ]
+    },
+    "supplementary/figureS6_mbtrace_concordance.png": {
+      "sha256": "28b34aa0deb7da639774b4c7c31c98381e95842690019b26e0a715c0193c5b9b",
+      "rgba_sha256": "ca6ff3fd1272219251d662c352ad842b93e5ebca617733ebe33469fc2d742f0f",
+      "dimensions": [
+        2671,
+        1024
+      ]
+    },
+    "supplementary/figureS7_mbtrace_c_sensitivity.png": {
+      "sha256": "a5351072a11b62b63d3cc3dfdb7c116e122c1507c2ce285328f25b6231073994",
+      "rgba_sha256": "60249dc7f2f859aa645a3cef08ab8015ac31f819fdd316a77887f8ac7fe6ecea",
+      "dimensions": [
+        2426,
+        964
+      ]
+    },
+    "supplementary/figureS8_carotid_c_sensitivity.png": {
+      "sha256": "22d86bb71dec7808d57e04b1ea335a2a060f0dc2e9a6c8e7f41a48cf0573220d",
+      "rgba_sha256": "95967f27e93d1993f52c43e83d7a3285a9c7f2f63997990315c6f4524e22f2a9",
+      "dimensions": [
+        3208,
+        1039
+      ]
+    },
+    "supplementary/figureS9_experimental_psf_c_sensitivity.png": {
+      "sha256": "f50c0931799beb5a04ded847f93e3a91486c524c7c9b43eb943bedb1d2a13087",
+      "rgba_sha256": "ef842d0282d80ce82847a912b679e8e21b02842d1203eb2d370723b8b4009b0c",
+      "dimensions": [
+        2366,
+        964
+      ]
+    },
+    "table_conventional_baselines.tex": {
+      "sha256": "62ddfd6f5e22283a24749ad2096e0a276380e983cab7bbb47f27b3eb99eaee78"
+    },
+    "table_conventional_carotid_metrics.tex": {
+      "sha256": "3326c48920d714b35b9439f0a43c2147567d26c7945e8ae25bd813b02cf6ac85"
+    },
+    "table_conventional_parameters.tex": {
+      "sha256": "7442b7704f64c2736da7ef6bbb9f1916d0e60e7ffcbeaf7f19b2283e591d277e"
+    },
+    "table_conventional_psf_details.tex": {
+      "sha256": "b60f715f1206bce98a1259ffb83d3b7745ee964b627d9d137bf0bae408e20ba5"
+    },
+    "table_conventional_timing.tex": {
+      "sha256": "7df091646e1ae61bd4b55aa0dfce4ccac728aaaf703f82b62305bdd0a8dd8c08"
+    },
+    "table_mbtrace_c_sensitivity.tex": {
+      "sha256": "52101a0f32d915371ebfed25dabfa8a96bd8c82ce1dbd3fb2d9e0d9ae7c327ae"
+    },
+    "table_mbtrace_displacements.tex": {
+      "sha256": "a8798b1589a53a6c1bd705a4fdc5f2dccbac47e278b1e973b425d1b0aab06aae"
+    },
+    "table_simulation_metrics.tex": {
+      "sha256": "3497fcc8e3fb071a8c48e7bfd60dc71ea225e61ce86069200e4c6762c7f53eb8"
+    },
+    "table_timing_controls.tex": {
+      "sha256": "f94c88e1f256a47669b1426cc9d366bca949d50a15b24eb0f16ecd35d5dd79a0"
+    }
+  },
+  "numerical_inputs": {
+    "bmode/bmode_nsi_c_sensitivity.json": "94cc086d60eabed5b2fb8913dfc6fe721bf7d0e290b3ffcdc58f3eea8298620a",
+    "bmode/bmode_nsi_results.json": "22a3615f0243ee74eef8f7dd0245021d67354a97201e27623e37cb8068ea2c55",
+    "conventional_baselines/conventional_baseline_carotid_CC_cache.npz": "9ba99d80be754146818b5246c99d4122287059f0645c0bb3c06c33c3bd46ede5",
+    "conventional_baselines/conventional_baseline_carotid_CL_cache.npz": "efd4b00c6026df23954ff0731a3c9c5df4a5ca9030bfae6bdf761eaf48b45f7e",
+    "conventional_baselines/conventional_baseline_experimental_psf_profiles.npz": "b0d87d29d23d71452e812c8425db1e41e847ae51f6a408f29234e1651587dbda",
+    "conventional_baselines/conventional_baseline_summary.json": "d1fde3c905f1771b9049941692934025d4122b6f6c3821915875a02543b5f1b0",
+    "conventional_baselines/published_carotid_metrics.csv": "fb306300fcf5a765f10bd4cecaa62798a6e154db3e67282fadcf7ded7732ae47",
+    "conventional_timing/conventional_timing_runs.csv": "f65ab1f70450904b9ea3196b43dadc8ae0dc456eeea5dc9e9701c042732a6d8b",
+    "conventional_timing/conventional_timing_summary.csv": "a06f3d0ec6a2faf96a982c950d939086700f42c7a5552a273c2f96e7f23f1a2c",
+    "conventional_timing/conventional_timing_summary.json": "acb1e5452defc46e0140c94b084dfb64d83a18b22a10cef1f79746def693fb68",
+    "doppler/mbtrace_c_sensitivity.csv": "2731a5ca0289db39407bb7b130c41665fd7b3159db786e13370828807e2a8b69",
+    "doppler/mbtrace_c_sensitivity.json": "cb39f09302bae73f8055e8132981c6f3198d99fcb2911ae248e3d16fb2d1714c",
+    "doppler/mbtrace_three_method_comparison.csv": "c31dd2b32a6fc02735686bf0f1502722e4055c099995ff35ad6fb83d9d0af4de",
+    "doppler/microbubble_peak_concordance_displacements.csv": "9dceb7dc1b942a464bac9b818141531df46551582427dc9199de2aa0d1ff6d8a",
+    "doppler/microbubble_trace_widths.csv": "b13a0fdb9c16815e9b90bcdaaf3c573b7403baa2001101f00bfce90f961c4859",
+    "doppler/microbubble_trace_widths_summary.json": "73de663208d13a712c7431ceb2b194e6a3ec98ec0529cc76b544aa8e3bb5fef0",
+    "experimental_psf/picmus_experimental_psf_c_sensitivity.csv": "5a32986793482d205453e9acc00f401b49c3def0d9ac3a8b28bac3f8e0d84699",
+    "experimental_psf/picmus_experimental_psf_summary.json": "4550aba49bcb72237ad8de0e6ab87d1e1f2e7875bac8d3626322f2229c55fdc0",
+    "phantom_inclusion/inclusion_gcnr.csv": "8c3edc43b0b0e5d3f5e1f202053dc42c1a6550673ea274905817626429534c68",
+    "phantom_inclusion/inclusion_gcnr_sensitivity.csv": "81647ab322f6c5f85ae8d234efaf43a3fb3b90f0aac0571c9d1e95d6852a1b15",
+    "phantom_inclusion/inclusion_gcnr_summary.json": "1e80c0e8e4b972cc44e4b90a875c4bcfa94ff5b4514677bd4531d686cb9de283",
+    "picmus_full_phantom/picmus_full_phantom_cache.npz": "4b122b41c91709cd8c15c5f14eb13ee4d2a8607c4925a95bddaac3e5d5904ce3",
+    "picmus_full_phantom/picmus_full_phantom_summary.json": "f40a8779f1e024a77d8788fbcadf431feb52200b2e592895287621fa35cd0722",
+    "point_target/simulation_psf_c_sensitivity.csv": "829f4cf35e98844a1704ca2738cb3cd377f9149888ddb555f057a19a4f0ca40d",
+    "point_target/simulation_psf_fwhm.csv": "4504b868db809d74127da2ce5e5e48ebc63030d6272810ca0b0052f72c00e090",
+    "point_target/simulation_psf_fwhm_summary.json": "d423b9a534b3b113f430cb396b09a489e314e2ac5fef1b9056c5c68258320d2b",
+    "point_target/simulation_psf_grid_convergence.csv": "db618c3ae30c038cb2acf8c3f772355b3602377a3ae6e0e9ace72050aff2a9b2",
+    "point_target/simulation_psf_grid_convergence_checks.csv": "8982486cfaca135a7f4b402042c7091988b3675571522283e3580ad8c67ac3a6",
+    "seven_target_metrics/cpu_gpu_validation.json": "10730613fdb61a6368bf9037e69b4b8f3156453999a2fe22f775a017bff1905b",
+    "seven_target_metrics/seven_target_metrics.csv": "d9996d3a67b66c5519c0e82ae214ad666b15c8e3c454a1472a20d73dd194acb4",
+    "seven_target_metrics/seven_target_summary.json": "de7df87d7e6a508e9006f36aa11214cdc3e2971897f7c1a5a9c7ce1a2ec207db",
+    "seven_target_metrics/target_1_arrays.npz": "d02e04a79d37bcda13bf688c45a7f2859ffc6e5bb1048c23e12b2b9fc027d8b8",
+    "seven_target_metrics/target_1_metrics.json": "78804af9a858edda686115d3bb6855c3b51c90a0f0c5aa9f277113a96e7d4e81",
+    "seven_target_metrics/target_2_arrays.npz": "b07697e647c15cde3864275d8e1e6f6ad68db4fea802703f82d4ac2e9eda3b12",
+    "seven_target_metrics/target_2_metrics.json": "edde1f33576d4e9fbd27454ea187987bf6b51da7f808fd6daf3b433b0a8f17ce",
+    "seven_target_metrics/target_3_arrays.npz": "ce26c67fa3a6940cda42bb47cdb5881c2db6c78093eac69058d2561c466f0722",
+    "seven_target_metrics/target_3_metrics.json": "9d7de1274f602239b121b641a390d7e313c1e2e20bcbe20665569494106776cb",
+    "seven_target_metrics/target_4_arrays.npz": "2c06f8a727eec31fe25862b19100625f56ecfc415db8bae064855477bb2c7ea2",
+    "seven_target_metrics/target_4_metrics.json": "4e0ebc639f6a843b02ffd0ca84fb0d30ce3d6e0f46a2973825f1485fbfc27e09",
+    "seven_target_metrics/target_5_arrays.npz": "f11573352d97b6c184b05b6166cad281d9b5197657b960fcd98a02641c6e8b0d",
+    "seven_target_metrics/target_5_metrics.json": "65bd3e16b1492db295220d10cf3eec70bcf629f30db678ea860623ff84a83fd8",
+    "seven_target_metrics/target_6_arrays.npz": "32d060b95877e567741449cab2aaf7919719c951be9a2c3a375b7c72eaf4fb62",
+    "seven_target_metrics/target_6_metrics.json": "bbb9e7ebcabd5f9bbb2d1d2239583b44a4809f864725ab67cf0000c5957fcd90",
+    "seven_target_metrics/target_7_arrays.npz": "aae42db2eace3f09566a759ac83754fae5b8e095ae42352b431905bfd0d9877f",
+    "seven_target_metrics/target_7_metrics.json": "90068de41ada4c6d1f534dc68fc8e215a851e351e300568fd3668e1b5cfa6aff",
+    "simulation_six_method/simulation_six_method_arrays.npz": "ffa0630fe29169cde8c1c06c46c355245e1f71ebcee900de213d890245277960",
+    "simulation_six_method/simulation_six_method_summary.json": "0baa1c1c5138bf6f49353d988627cd6fab6f781326cafe16623d4756d21193f7",
+    "timing_scaling/nsi_timing_scaling_summary.csv": "cd21a43e8118173051d4d4c24072c945dae1e72a19282a14cfd8a64e58147b6f",
+    "timing_scaling/nsi_timing_scaling_summary.json": "4486bab689b1f258f609f71887ae20eaf54dce8fbfd42a83cd76d35c9d31f05c",
+    "timing_scaling/runs/angles_17/nsi_timing_runs.csv": "d9c27b628885bfae7051d4aaf2998ef93b67eca0ed5c586744f49d4a36de8c6e",
+    "timing_scaling/runs/angles_33/nsi_timing_runs.csv": "992f5f8093966be274b244c36e3ea6fd6c2b946bff15bda5655b0c2e8199d0c8",
+    "timing_scaling/runs/angles_75/nsi_timing_runs.csv": "ba872ea5af2791613a188616296330263c7ca354ef93d72a4d3ca8dbb468e7fd",
+    "timing_scaling/runs/angles_9/nsi_timing_runs.csv": "eb5c007e0ceeed5c3562797be6c23980016f601d6849d3e6406b6831822d1578",
+    "timing_scaling/runs/baseline_host_stacked/nsi_timing_runs.csv": "35c6c3f0850b3a459d0671140404782edb9657fe94db3d8a64f2c98eb555ca81",
+    "timing_scaling/runs/baseline_preloaded/nsi_timing_runs.csv": "9ae17903f09146d27585cfd692e68d91a44eb9a145c612cd69b8dd873ea01b78",
+    "timing_scaling/runs/elements_128/nsi_timing_runs.csv": "2ebb22108568b33197a62a36ccfa3f837df2f52a4fdcd06e0ac1d08b08c4246c",
+    "timing_scaling/runs/elements_256/nsi_timing_runs.csv": "4f6939556dc79e08ce570655bbcb86798afd85fd10d0cbea400af9ccc42e2032",
+    "timing_scaling/runs/elements_64/nsi_timing_runs.csv": "a436847ba415299b769746cd5e6e60927723cad190850f2502000e99b4f4222b",
+    "timing_scaling/runs/grid_128x256/nsi_timing_runs.csv": "bee6da2af2f1a5c588fa3fc0fd71f5ebe316a8757ebbda84fe9acdd1cba519e4",
+    "timing_scaling/runs/grid_256x512/nsi_timing_runs.csv": "201b9df25afa4c9e22f76f4ff8bd02014f8532d8870d230eab685ce93c7e401c",
+    "timing_scaling/runs/grid_64x128/nsi_timing_runs.csv": "5a21731f3023330c75e0a641360443b599deebe10a0abef76b4877cc7550e1cb"
+  },
+  "cpu_redrawn_figures": [
+    "figures/figure1_simulation_six_method.png",
+    "figures/figure2_picmus_full_phantom_six_method.png",
+    "figures/figure4_carotid_six_method.png",
+    "figures/figure5_computation_benchmark.png",
+    "supplementary/figureS1_angle_sweeps.png",
+    "supplementary/figureS2_noise_phase_sweeps.png",
+    "supplementary/figureS3_spatial_psf.png",
+    "supplementary/figureS13_picmus_inclusion_rois.png"
+  ],
+  "archived_rendered_figures": [
+    "figures/figure3_microbubble_power_doppler.png",
+    "supplementary/figureS7_mbtrace_c_sensitivity.png",
+    "supplementary/figureS5_point_target_c_sensitivity.png",
+    "supplementary/figureS8_carotid_c_sensitivity.png",
+    "supplementary/figureS6_mbtrace_concordance.png",
+    "supplementary/figureS9_experimental_psf_c_sensitivity.png",
+    "supplementary/figureS1_angular_null_theory.png"
+  ],
+  "full_analysis_command": "python scripts/reproduce_paper.py --from-raw --device 0",
+  "legacy_release": "v1.1.0 (2026-09-17), preserved unchanged; not the final paper snapshot",
+  "shared_numerical_inputs": {
+    "results/reported/robustness/robustness_angle_sweeps.csv": "d38daafc5dd07e69b194445450d3f4fbcadc20bc60f8ea5a93684f3c515bf4a2",
+    "results/reported/robustness/robustness_noise_phase_sweeps.csv": "a9c6f0c5196f48adf1011b987391eacbdbe4ccbaad28a76101bec2f1aad80c0f",
+    "results/reported/robustness/robustness_spatial_psf.csv": "c66d060c25865f820cf0ac74baa0d2ee4045d0cdda4a80cc42c93480f184ddf0",
+    "results/reported/robustness/robustness_summary.json": "5f136ed6df72b38ac7e4535da6a8f0b79adfa264e50689c758eae298432f8280"
+  },
+  "schema_version": 2,
+  "reference_origin_commit": "44f90fc598969bdeaf78f858252477d3219b7cbc",
+  "reference_directory": "results/reference",
+  "description": "Accepted figure, table and macro references only; manuscript sources are maintained separately."
+}

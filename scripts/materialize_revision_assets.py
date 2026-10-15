@@ -890,7 +890,7 @@ def main() -> None:
         } or args.snapshot and relative.as_posix() == 'figures/figure4_carotid_six_method.png':
             continue
         if args.snapshot and not source.is_file():
-            source = ROOT / 'paper' / relative
+            source = ROOT / 'results/reference' / relative
         copy_required(source, destination)
 
     for obsolete in (

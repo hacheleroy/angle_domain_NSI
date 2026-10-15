@@ -1,6 +1,6 @@
 # Validation notes
 
-> Historical validation record. The final 15 October 2026 paper workflow is documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+> Historical validation record. Current v1.2.0 entry points, reference replay and validation boundaries are documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md). Commands and status below describe the historical study.
 
 The following checks were completed after adding the reviewer-requested
 conventional baselines:
@@ -32,7 +32,7 @@ conventional-comparison pass on 16--17 September 2026 with an NVIDIA RTX
 A2000, CuPy 14.1.1 and CUDA runtime 12.9. That archive passed its strict gate:
 all six methods were present, the experimental PSF and both carotid views were
 complete, every DMAS lateral line contained finite positive signal, and the
-post-delay timing used 10 warm-ups and 50 repetitions. A final GPU pass is
+post-delay timing used 10 warm-ups and 50 repetitions. At that checkpoint a final GPU pass was
 still required for the reorganized six-method simulation, full PICMUS phantom
 and three-method MBTrace main figures. The existing records under
 `results/reported/` remain immutable provenance for the completed analyses.
