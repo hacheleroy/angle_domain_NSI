@@ -25,9 +25,12 @@ python scripts/reproduce_paper.py
 python -m unittest discover -s tests -v
 ```
 
-References and checksums are under `results/reference/`. Eight figures are
+Figure references and all output checksums are under `results/reference/`.
+Table/macro fragments are generated from frozen CSV/JSON without tracked
+`.tex` reference files. Eight figures are
 redrawn, seven restored, and tables/macros regenerated; final outputs are
-byte-checked. The report records the distinction. No RF dataset or GPU is
+byte-checked. The report distinguishes metadata-only PNG changes from the
+manifest's narrowly bounded Figure 4 grayscale-rounding variation. No RF dataset or GPU is
 needed for this replay.
 
 ## Fresh reconstruction

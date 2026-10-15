@@ -35,6 +35,11 @@
       ]
     },
     "figures/figure4_carotid_six_method.png": {
+      "rendering_tolerance": {
+        "max_changed_pixels": 32,
+        "max_channel_difference": 1,
+        "reason": "NumPy float32 log10 CPU dispatch changes twelve grayscale pixels by one level; equal RGB shifts only, with opacity and numerical inputs exact."
+      },
       "sha256": "0be7d5f3526dbeaac476c56b715133bbe5857aa390d61a1cc3de82d2e0b63ac6",
       "rgba_sha256": "7f60b17cc51ff5d5c2f34006111172ab83ebb3ae7c3348243f0258ee8aa66459",
       "dimensions": [
@@ -251,8 +256,8 @@
     "results/reported/robustness/robustness_spatial_psf.csv": "c66d060c25865f820cf0ac74baa0d2ee4045d0cdda4a80cc42c93480f184ddf0",
     "results/reported/robustness/robustness_summary.json": "5f136ed6df72b38ac7e4535da6a8f0b79adfa264e50689c758eae298432f8280"
   },
-  "schema_version": 2,
+  "schema_version": 3,
   "reference_origin_commit": "44f90fc598969bdeaf78f858252477d3219b7cbc",
   "reference_directory": "results/reference",
-  "description": "Accepted figure, table and macro references only; manuscript sources are maintained separately."
+  "description": "Accepted PNG references and original output hashes. Tables/macros are regenerated from frozen CSV/JSON records; their LaTeX fragments are not tracked. Manuscript sources are maintained separately."
 }

@@ -109,9 +109,13 @@ python -m unittest discover -s tests -v
 writes `results/generated/paper_assets/` and checks **25 accepted assets**:
 five main figures, ten supplementary figures, nine table fragments and one
 numerical-macro file. Eight figures are redrawn from frozen arrays/measurements;
-seven GPU-rendered figures are restored from reference images. Pixel-identical
-redraws retain the original PNG metadata bytes. The generated report lists
-redrawn/restored figures and metadata normalization explicitly.
+seven GPU-rendered figures are restored from reference images. Tables and
+macros are regenerated from CSV/JSON records and checked against their accepted
+SHA-256 hashes; no manuscript or `.tex` reference files are tracked.
+Redraws retain reference PNG bytes after verification. Figure 4 permits at most
+32 pixels to differ by one grayscale level because NumPy CPU instruction paths
+round its float32 display transform differently. Every numerical-input hash
+remains exact. The report lists redraws, restorations and rendering differences.
 
 Tests remeasure all 42 method/target PSFs and their seven-target means/sample
 SDs, check the saved CPU/GPU agreement, and reproduce the complete asset set.
@@ -160,13 +164,13 @@ reference replay checks the accepted artifacts exactly. Full CUDA/RF execution
 is outside CPU CI; the maintenance release validates CPU behavior, packaging
 and replay without claiming a new end-to-end GPU run.
 
-## Layout, licenses and citation
+## Layout and licenses
 
 ```text
 src/angle_nsi/                   Installable core API and NPZ CLI
 src/                            Acquisition and comparison scripts
 examples/                       CPU quick start and own-data recipe
-results/reference/              Accepted figure/table references and checksums
+results/reference/              Accepted figure images and all asset checksums
 results/reported/paper_inputs/   Frozen numerical inputs for the final paper
 results/reported/                Earlier release records and shared robustness data
 results/generated/               New outputs, ignored by Git
@@ -178,6 +182,28 @@ docs/                            Input specification, environments and reproduct
 Code is licensed under MIT. Committed result records, generated scientific
 assets and documentation use CC BY 4.0; see [LICENSE](LICENSE) and
 [LICENSE-DATA](LICENSE-DATA). External RF datasets retain their source terms
-and are not redistributed. Citation metadata are in [CITATION.cff](CITATION.cff).
-Please cite the article and the relevant PICMUS, Open-NSI, PyMUST/MUST, MACH
-and baseline-method references when using those components.
+and are not redistributed.
+
+## Citation
+
+If you use this code or imaging technique in your research, please cite:
+
+Henri Leroy (2026). **Angle-domain null subtraction imaging from beamformed
+plane-wave data**. arXiv:2608.18252.
+[Paper](https://arxiv.org/abs/2608.18252) ·
+[DOI: 10.48550/arXiv.2608.18252](https://doi.org/10.48550/arXiv.2608.18252).
+
+```bibtex
+@article{leroy2026angledomain,
+  title   = {Angle-domain null subtraction imaging from beamformed plane-wave data},
+  author  = {Leroy, Henri},
+  journal = {arXiv preprint arXiv:2608.18252},
+  year    = {2026},
+  doi     = {10.48550/arXiv.2608.18252},
+  url     = {https://arxiv.org/abs/2608.18252}
+}
+```
+
+Machine-readable citation metadata are in [CITATION.cff](CITATION.cff).
+Please also cite the relevant PICMUS, Open-NSI, PyMUST/MUST, MACH and
+baseline-method publications when using those components.

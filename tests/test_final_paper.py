@@ -29,7 +29,7 @@ class FinalPaperTests(unittest.TestCase):
     def test_frozen_inputs_and_used_assets_are_intact(self):
         manifest = replay.read_manifest()
         replay.verify_sources(manifest)
-        replay.verify_assets(replay.REFERENCE, manifest, preserve_original_metadata=False)
+        replay.verify_reference_assets(manifest)
         self.assertEqual(manifest["methods"], list(METHODS))
         self.assertEqual(len(manifest["assets"]), 25)
 
@@ -39,12 +39,13 @@ class FinalPaperTests(unittest.TestCase):
         observed = {
             p.relative_to(replay.REFERENCE).as_posix()
             for p in replay.REFERENCE.rglob("*")
-            if p.is_file() and p.suffix in {".png", ".tex"}
+            if p.is_file() and p.suffix == ".png"
         }
-        self.assertEqual(observed, names)
+        self.assertEqual(observed, {name for name in names if name.endswith(".png")})
         self.assertEqual(sum(n.endswith(".png") for n in names), 15)
         self.assertEqual(sum(Path(n).name.startswith("table_") for n in names), 9)
         self.assertFalse((replay.REFERENCE / "main.tex").exists())
+        self.assertEqual(list(replay.REFERENCE.rglob("*.tex")), [])
         self.assertNotIn("source_files", manifest)
 
     def test_all_42_psf_measurements_recompute_from_saved_arrays(self):
@@ -69,6 +70,53 @@ class FinalPaperTests(unittest.TestCase):
                     observed, _ = metrics_for_method(values, grid, expected["target_x_mm"], expected["target_z_mm"])
                     for metric in ("lateral_width_mm", "axial_width_mm", "localization_error_mm", "peak_to_median_background_db"):
                         self.assertAlmostEqual(observed[metric], expected[metric], places=11, msg=f"{target} {method} {metric}")
+
+    def test_raster_tolerance_is_bounded_grayscale_only_and_reported(self):
+        import hashlib
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory(prefix="nsi-raster-test-") as directory:
+            reference = Path(directory) / "reference"
+            output = Path(directory) / "output"
+            reference.mkdir()
+            output.mkdir()
+            name = "figure.png"
+            pixels = np.full((4, 4, 4), 100, dtype=np.uint8)
+            pixels[..., 3] = 255
+            Image.fromarray(pixels).save(reference / name)
+            entry = {
+                "sha256": replay.sha256(reference / name),
+                "rgba_sha256": hashlib.sha256(pixels.tobytes()).hexdigest(),
+                "dimensions": [4, 4],
+                "rendering_tolerance": {"max_changed_pixels": 1, "max_channel_difference": 1},
+            }
+            manifest = {"assets": {name: entry}}
+            accepted = pixels.copy()
+            accepted[0, 0, :3] += 1
+            Image.fromarray(accepted).save(output / name)
+            with patch.object(replay, "REFERENCE", reference):
+                report = replay.verify_assets(output, manifest, restore_reference_bytes=True)
+            self.assertEqual(report["metadata_only_png_differences"], [])
+            self.assertEqual(report["rendering_tolerance_differences"], [
+                {"asset": name, "changed_pixels": 1, "max_channel_difference": 1},
+            ])
+            self.assertEqual(replay.sha256(output / name), entry["sha256"])
+
+            for change in ("magnitude", "count", "color", "alpha", "no_tolerance"):
+                candidate = accepted.copy()
+                if change == "magnitude":
+                    candidate[0, 0, :3] += 1
+                elif change == "count":
+                    candidate[0, 1, :3] += 1
+                elif change == "color":
+                    candidate[0, 0, 0] -= 1
+                elif change == "alpha":
+                    candidate[0, 0, 3] -= 1
+                else:
+                    entry.pop("rendering_tolerance")
+                Image.fromarray(candidate).save(output / name)
+                with self.subTest(change=change), patch.object(replay, "REFERENCE", reference), self.assertRaises(ValueError):
+                    replay.verify_assets(output, manifest, restore_reference_bytes=True)
 
     def test_seven_target_aggregates_use_sample_standard_deviation(self):
         summary = json.loads((replay.INPUTS / "seven_target_metrics/seven_target_summary.json").read_text())

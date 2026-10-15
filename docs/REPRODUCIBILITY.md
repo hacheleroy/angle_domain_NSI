@@ -2,8 +2,10 @@
 
 Release v1.2.0 retains the final 15 October 2026 numerical snapshot. Manuscript
 sources and compiled documents are maintained separately. The repository
-keeps the accepted figures/tables in `results/reference/` and the frozen
-numerical inputs in `results/reported/paper_inputs/`.
+keeps the accepted figure images and all output checksums in `results/reference/`
+and the frozen numerical inputs in `results/reported/paper_inputs/`.
+No `.tex` files are tracked; table/macro fragments are regenerated from
+the CSV/JSON records and checked against their original SHA-256 hashes.
 
 ## Exact publication replay
 
@@ -18,7 +20,7 @@ python -m unittest discover -s tests -v
 
 `requirements-cpu.txt` freezes direct and transitive rendering dependencies.
 The default output is `results/generated/paper_assets/`. The reference manifest
-schema 2 verifies every frozen input, shared robustness record and the 25
+schema 3 verifies every frozen input, shared robustness record and the 25
 accepted output assets without requiring manuscript LaTeX.
 
 Eight figures are redrawn: main Figures 1, 2, 4 and 5; angular, perturbation
@@ -28,10 +30,16 @@ are regenerated from records. The report lists both sets. Exact replay
 therefore combines numerical regeneration with explicitly identified archival
 restoration; it does not repeat RF reconstruction.
 
-PNG byte differences are accepted only after decoded-pixel hashes and image
-dimensions match. The original reference bytes are then restored to retain
-original Matplotlib metadata. Every final asset must match its reference
-SHA-256. This behavior is reported, not hidden as a new rendering result.
+PNG byte differences normally require matching decoded-pixel hashes and image
+dimensions. Figure 4 alone permits up to 32 changed pixels, each an equal RGB
+shift of at most one level with unchanged opacity. NumPy float32 `log10`
+instruction dispatch was observed to change 12 of its 5,170,158 pixels by one
+grayscale level; disabling AVX2/AVX512 reproduced the CI difference locally.
+The numerical inputs remain SHA-256 checked. Larger, colored, opacity or
+dimension changes fail verification, and every other figure stays pixel-exact.
+The report records tolerated raster differences separately from metadata-only
+differences before restoring the accepted PNG bytes. Every final asset must
+match its original SHA-256.
 
 Reference assets were recovered byte-for-byte from commit
 `44f90fc598969bdeaf78f858252477d3219b7cbc`. Numerical files were preserved.
