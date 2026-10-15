@@ -188,9 +188,8 @@ and are not redistributed.
 
 If you use this code or imaging technique in your research, please cite:
 
-Henri Leroy (2026). **Angle-domain null subtraction imaging from beamformed
-plane-wave data**.
-[Paper](https://arxiv.org/abs/2608.18252) ·
+Henri Leroy (2026). **[Angle-domain null subtraction imaging from beamformed
+plane-wave data](https://arxiv.org/abs/2608.18252)**.
 
 ```bibtex
 @article{leroy2026angledomain,
