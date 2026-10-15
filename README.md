@@ -1,6 +1,6 @@
 # Angle-domain null subtraction imaging
 
-Python implementation of Henri Leroy's **Angle-domain null subtraction imaging
+Python implementation of **Angle-domain null subtraction imaging
 from beamformed plane-wave data**. [Paper: arXiv:2608.18252](https://arxiv.org/abs/2608.18252).
 Release **v1.2.0** preserves the final 15 October 2026 numerical snapshot and
 adds a small interface for applying Angle-NSI to your own images.
@@ -189,9 +189,8 @@ and are not redistributed.
 If you use this code or imaging technique in your research, please cite:
 
 Henri Leroy (2026). **Angle-domain null subtraction imaging from beamformed
-plane-wave data**. arXiv:2608.18252.
+plane-wave data**.
 [Paper](https://arxiv.org/abs/2608.18252) ·
-[DOI: 10.48550/arXiv.2608.18252](https://doi.org/10.48550/arXiv.2608.18252).
 
 ```bibtex
 @article{leroy2026angledomain,
