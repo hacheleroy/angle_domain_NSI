@@ -1,6 +1,6 @@
 # Reproduction and numerical provenance
 
-Release v1.2.0 retains the final 15 October 2026 numerical snapshot. Manuscript
+Release v1.2.1 retains the final 15 October 2026 numerical snapshot. Manuscript
 sources and compiled documents are maintained separately. The repository
 keeps the accepted figure images and all output checksums in `results/reference/`
 and the frozen numerical inputs in `results/reported/paper_inputs/`.
@@ -104,5 +104,5 @@ executes the demo and NPZ CLI, and builds/inspects a wheel and source archive.
 A separate Windows/Linux matrix checks the installed NumPy-only package.
 The wheel contains the reusable API/CLI; the Git checkout contains the complete
 publication reproduction materials. `CITATION.cff`, package version and the
-v1.2.0 tag identify the maintenance release. The v1.1.0 tag retains the earlier
-17 September snapshot unchanged.
+v1.2.1 tag identify the maintenance release. The existing v1.2.0 tag is preserved;
+the v1.1.0 tag retains the earlier 17 September snapshot unchanged.

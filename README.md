@@ -2,7 +2,7 @@
 
 Python implementation of **[Angle-domain null subtraction imaging
 from beamformed plane-wave data](https://arxiv.org/abs/2608.18252)**.
-Release **v1.2.0** preserves the final 15 October 2026 numerical snapshot and
+Release **v1.2.1** preserves the final 15 October 2026 numerical snapshot and
 adds a small interface for applying Angle-NSI to your own images.
 
 Angle-NSI operates on **complex receive-beamformed images retained separately

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "angle-nsi"
-version = "1.2.0"
+version = "1.2.1"
 description = "Angle-domain null subtraction imaging from complex per-angle beamformed images"
 readme = "README.md"
 requires-python = ">=3.10"

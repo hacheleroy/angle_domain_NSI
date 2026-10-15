@@ -1,10 +1,11 @@
 # Changes
 
-## Unreleased
+## 1.2.1 - 15 October 2026
 
 - Restore the paper citation and copyable BibTeX entry at the end of the README.
 - Remove all ten tracked LaTeX reference fragments; regenerate tables/macros from frozen CSV/JSON and verify their original hashes.
 - Report narrowly bounded Figure 4 grayscale rounding differences across NumPy CPU instruction paths while retaining strict numerical checksums and accepted output bytes.
+- Synchronize package, citation and reproduction documentation for the community/reviewer release; preserve the existing v1.2.0 and v1.1.0 tags.
 
 ## 1.2.0 - 15 October 2026
 

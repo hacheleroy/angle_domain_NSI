@@ -1,4 +1,4 @@
-# Publication repository handoff: v1.2.0
+# Publication repository handoff: v1.2.1
 
 The final numerical record is dated 15 October 2026. The maintenance release
 adds an installable NumPy/CuPy stack interface, an NPZ CLI, CPU example and
