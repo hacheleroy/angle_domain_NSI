@@ -1,14 +1,16 @@
 # Angle-domain null subtraction imaging
 
-Code, frozen numerical inputs and final paper sources for Henri Leroy,
+Code and frozen numerical inputs for Henri Leroy,
 "Angle-domain null subtraction imaging from beamformed plane-wave data".
 [Preprint: arXiv:2608.18252](https://arxiv.org/abs/2608.18252).
 
-The authoritative paper snapshot is **15 October 2026**. The earlier
-`v1.1.0` release is preserved as the 17 September revision snapshot; it does
+The final numerical-results snapshot is **15 October 2026**. Manuscript
+sources, compiled documents and rendered publication assets are maintained
+separately; the `paper/` directory is no longer included in the current checkout.
+The earlier `v1.1.0` release is preserved as the 17 September revision snapshot; it does
 not contain the final figure/table reorganization.
 
-## Reproduce the final figures and tables on a CPU
+## Use the frozen numerical inputs on a CPU
 
 Use CPython 3.12 on Linux or WSL:
 
@@ -16,32 +18,37 @@ Use CPython 3.12 on Linux or WSL:
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-cpu.txt
-python scripts/reproduce_paper.py
 ```
 
-The command writes `results/generated/paper_assets/` and verifies **25 used
-assets: five main figures, ten supplementary figures, nine table files and
-one numerical-macro file**. It redraws eight figures from the frozen arrays
-and measurements and restores seven archived GPU-rendered figures. Every
-output is checked against the accepted paper; metadata-only PNG differences
-are replaced with the original PNG bytes after a pixel-identical comparison.
-No external dataset or GPU is needed for this replay. The report explicitly
-lists which figures were redrawn and which were restored.
+The arrays, profiles, numerical summaries and timing records remain in
+[`results/reported/paper_inputs/`](results/reported/paper_inputs/).
+They support numerical checks and plotting without the manuscript sources.
+For example, recompute the inclusion gCNR and its ROI figure from the saved
+six-method phantom maps, without external RF data or a GPU:
 
 ```bash
-python scripts/reproduce_paper.py --check-only
-python -m unittest discover -s tests -v
+python src/picmus_inclusion_metrics.py \
+  --cache results/reported/paper_inputs/picmus_full_phantom/picmus_full_phantom_cache.npz \
+  --output-dir results/generated/phantom_inclusion
 ```
 
-Tests also remeasure all 42 method/target PSFs from saved maps and profiles,
-verify the seven-target means and sample standard deviations, and run the
-complete asset replay. Source and data checksums are recorded in
-[`paper/asset_manifest.json`](paper/asset_manifest.json).
+Run the NSI algebra and PSF measurement helper tests with:
 
-The clean manuscript and standalone supplement are in [`paper/`](paper/).
-They contain only the local figure/table dependencies used by the final text.
-The response letter and highlighted review copy are excluded from this public
-scientific-source snapshot.
+```bash
+python -m unittest discover -s tests -p "test_nsi_identities.py" -v
+python -m unittest discover -s tests -p "test_psf_metrics.py" -v
+```
+
+Exact replay of all 25 publication assets depended on the removed
+`paper/asset_manifest.json` and archived rendered figures. Consequently,
+`scripts/reproduce_paper.py` (including `--check-only` and `--from-raw`) and
+the materializer's `--snapshot` mode require that archive and cannot complete
+from the current checkout alone. The paper-source and complete-replay tests
+in `tests/test_final_paper.py`, plus the existing **Paper reproducibility**
+GitHub Actions workflow, also retain that dependency and need a separate
+maintenance update. Full test discovery therefore does not currently pass.
+The original exact-replay setup is retained in the
+[15 October checkpoint](https://github.com/hacheleroy/angle_domain_NSI/tree/44f90fc598969bdeaf78f858252477d3219b7cbc).
 
 ## Main figures
 
@@ -56,7 +63,7 @@ scientific-source snapshot.
 Table 2 uses the mean and sample SD of seven local target measurements for
 width and peak/background, plus one fixed inclusion/background ROI pair for
 gCNR. Supplementary table S7 lists all 42 individual cases. The inclusion
-measurement is independently reproduced during CPU replay.
+measurement can be reproduced with the CPU command above.
 
 The displayed method names are **DAS, CF-DAS, MV, DMAS, Receive-NSI and
 Angle-NSI**. CF-DAS uses the ordinary receive-channel coherence factor per
@@ -75,8 +82,15 @@ separate and pinned to the environment used for the final presentation edits.
 ```bash
 python -m pip install -r requirements.txt
 python scripts/fetch_datasets.py --dataset all
-python scripts/reproduce_paper.py --from-raw --device 0
+python scripts/run_revision_gpu.py --device 0 \
+  --steps theory,robustness,point-target,simulation-six-method,mbtrace,carotid,experimental-psf,picmus-full-phantom,conventional-baselines,seven-target-metrics,phantom-inclusion,timing,conventional-timing,manuscript-assets
 ```
+
+This invokes the analysis runner directly, without the removed paper
+manifest. New analysis outputs go to `results/generated/revision/`; the
+final materialization stage writes figures and LaTeX table fragments to
+`results/generated/revision/manuscript_assets/`. These generated fragments
+can be imported into a separately maintained manuscript project.
 
 Data locations and checksums are documented in [`data/README.md`](data/README.md).
 The Open-NSI Box share can require a manual `MBTrace.mat` download; put the
@@ -104,28 +118,28 @@ record installed package versions. Future MBTrace runs also save display
 arrays for CPU figure regeneration.
 
 A fresh raw-data run produces new floating-point reconstructions and timing
-samples. Wall-clock times depend on the GPU, driver and software. The frozen
-replay reproduces the exact published artifacts; the raw-data path reruns the
-acquisition-specific calculations. The full CUDA workflow is not exercised
-by CPU CI.
+samples. Wall-clock times depend on the GPU, driver and software. This path
+reruns the acquisition-specific calculations; it does not verify byte-identical
+agreement with the separately maintained publication assets. The full CUDA
+workflow is not exercised by CPU CI.
 
 ## Layout and provenance
 
 ```text
-paper/                           Final clean LaTeX, used assets and checksums
 results/reported/paper_inputs/   Frozen numerical inputs for the final paper
 results/reported/                Earlier release records, retained for provenance
-results/generated/               New runs and asset replays (ignored by Git)
+results/generated/               New analyses and generated assets (ignored by Git)
 src/                             Beamforming, measurement and plotting modules
 scripts/                         Data acquisition and workflow entry points
-tests/                           CPU algebra, measurement and paper regression tests
+tests/                           CPU helpers, measurements and legacy paper checks
 docs/                            Reproduction protocol and historical validation notes
 ```
 
-See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for measurement sources,
-figure replay boundaries and the remaining software-maintenance work.
+See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for measurement sources
+and analysis definitions. Its exact-replay instructions, along with
+`results/README.md`, describe the earlier checkout containing `paper/`;
+use this README for the current commands and limitations.
 External RF datasets are not redistributed. Code uses the MIT license;
 committed result records and generated scientific assets use CC BY 4.0.
-The IOP class retains its LaTeX Project Public License notice.
 Citation metadata are in `CITATION.cff`; please cite the paper and the relevant
 PICMUS, Open-NSI, PyMUST/MUST, MACH and baseline-method references.
