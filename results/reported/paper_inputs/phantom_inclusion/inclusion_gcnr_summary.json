@@ -1,0 +1,1309 @@
+{
+  "source_cache": "/workspace/scratch/4c092ca7f95b/fig2_cleanup_2026-10-14/data/picmus_full_phantom_cache.npz",
+  "source_sha256": "4b122b41c91709cd8c15c5f14eb13ee4d2a8607c4925a95bddaac3e5d5904ce3",
+  "inclusion_center_xz_mm": [
+    -10.5,
+    27.5
+  ],
+  "background_center_xz_mm": [
+    10.5,
+    27.5
+  ],
+  "roi_radius_mm": 2.0,
+  "primary_bins": 100,
+  "histogram_domain": "log envelope, shared equal-width edges per method",
+  "numerical_floor_db": -120,
+  "display_floor_db": -60,
+  "estimator": "1 - sum_j min(p_inclusion[j], p_background[j])",
+  "gcnr_function_sha256": "eab1fe4575fa7c85e5fd92a6ca5f5a1d2fa92cb4daf3b4c2d595922bf2f2f627",
+  "sampling": "Existing common overview grid, 0.05 mm lateral by 0.10 mm axial; native MV/DMAS grids as in Supplement S10.",
+  "replication": "One inclusion/background ROI pair per method; these are not seven-target averages.",
+  "primary": [
+    {
+      "method": "DAS",
+      "gcnr": 0.732254787460483,
+      "normalization_reference_peak": 146.6926727294922,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    },
+    {
+      "method": "CF-DAS",
+      "gcnr": 0.7986119294736005,
+      "normalization_reference_peak": 92.81085968017578,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    },
+    {
+      "method": "MV",
+      "gcnr": 0.6195574104040779,
+      "normalization_reference_peak": 31.718040466308594,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    },
+    {
+      "method": "DMAS",
+      "gcnr": 0.7686293633890331,
+      "normalization_reference_peak": 1215.0089111328125,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    },
+    {
+      "method": "Receive-NSI",
+      "gcnr": 0.29944945362128195,
+      "normalization_reference_peak": 3.043415069580078,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    },
+    {
+      "method": "Angle-NSI",
+      "gcnr": 0.28470551565140223,
+      "normalization_reference_peak": 4.25001335144043,
+      "inclusion_pixel_count": 2502,
+      "background_pixel_count": 2503
+    }
+  ],
+  "sensitivity": [
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8091338804593898
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8120272766540148
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.812042593732864
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7707795560144554
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7707795560144554
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7728446050593701
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7310658065636984
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.732254787460483
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7330539882915881
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7230238393977415
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7258469259723965
+    },
+    {
+      "method": "DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7267879548306149
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.699523052464229
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.7172587306409953
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.7420508744038156
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.712241653418124
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.732254787460483
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.7635135135135135
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.7436406995230525
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.7631243248212931
+    },
+    {
+      "method": "DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.7853736089030207
+    },
+    {
+      "method": "DAS",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7326541483553071
+    },
+    {
+      "method": "DAS",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7330509543623591
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8577518204348212
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8577518204348212
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8649232767520441
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.821889519876097
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8275684047496128
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8327310273618999
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.796209217204742
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7986119294736005
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8053969129929777
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.785759096612296
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7863864491844417
+    },
+    {
+      "method": "CF-DAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7882685069008782
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.735691573926868
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.7687407446393668
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.81120826709062
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.7651033386327504
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7986119294736005
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.8366454689984102
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.7984896661367249
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.8290003779723825
+    },
+    {
+      "method": "CF-DAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.8644674085850557
+    },
+    {
+      "method": "CF-DAS",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7946045880035884
+    },
+    {
+      "method": "CF-DAS",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7994045834047904
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.737656732009325
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7405455330802952
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7420266946050185
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6824987093443469
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6830149716055757
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6835312338668044
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6187483093828573
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6195574104040779
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6235575662522319
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6107277289836888
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6113550815558344
+    },
+    {
+      "method": "MV",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6132371392722711
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.5949920508744039
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.6054723952016063
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.6263910969793323
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.6065182829888712
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6195574104040779
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.6593799682034975
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.6470588235294117
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.6568681157310573
+    },
+    {
+      "method": "MV",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.6776629570747218
+    },
+    {
+      "method": "MV",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.618759966058316
+    },
+    {
+      "method": "MV",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.6195564523211635
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8242074177549451
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8242074177549451
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.8270962188259152
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7883324728962313
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7883324728962313
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7903975219411461
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7686293633890331
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7686293633890331
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7686293633890331
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7600376411543288
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7644291091593476
+    },
+    {
+      "method": "DMAS",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7647427854454203
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.7186009538950715
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.7412082746213526
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.7758346581875993
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.742845786963434
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7686293633890331
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.8016693163751987
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.7766295707472178
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.805037758930236
+    },
+    {
+      "method": "DMAS",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.8231319554848966
+    },
+    {
+      "method": "DMAS",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.762230966325621
+    },
+    {
+      "method": "DMAS",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.7686274472232043
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3409643020160339
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3467480309895139
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.368270058480607
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3092410944759938
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.31491997934950955
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.32782653588022714
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.29266622658724795
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.29944945362128195
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3166448064081695
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3149309912170639
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3221455457967377
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.334065244667503
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.28974562798092207
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.31120244528920593
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.32193958664546896
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.2933227344992051
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.29944945362128195
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.3231319554848967
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.3155802861685215
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.31490781815442204
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.343799682034976
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.29624833892374713
+    },
+    {
+      "method": "Receive-NSI",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.309846250047505
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.32610060870071345
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.33541186093317776
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.5,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.35253941850241854
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.2968508002065049
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3082085699535364
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 1.75,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.32731027361899845
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.27989530069911306
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.28470551565140223
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.0,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.3010871366829829
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 50,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.28607277289836885
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.2898368883312421
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "radius_and_bins",
+      "radius_mm": 2.25,
+      "bins": 200,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.29830614805520694
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.25715421303656594
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0,
+      "gcnr": 0.2839970877262654
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": -0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.29809220985691576
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": -0.25,
+      "gcnr": 0.2651033386327504
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.28470551565140223
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0.25,
+      "gcnr": 0.3179650238473768
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": -0.25,
+      "gcnr": 0.29451510333863273
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0,
+      "gcnr": 0.2981180550767054
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "paired_center_shift",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0.25,
+      "dz_mm": 0.25,
+      "gcnr": 0.33982511923688397
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "linear_envelope",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.27788460402273474
+    },
+    {
+      "method": "Angle-NSI",
+      "check": "pooled_quantile_bins",
+      "radius_mm": 2.0,
+      "bins": 100,
+      "dx_mm": 0,
+      "dz_mm": 0,
+      "gcnr": 0.2950769228803932
+    }
+  ]
+}

@@ -13,7 +13,6 @@ import argparse
 import csv
 import json
 import math
-import shutil
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -38,6 +37,7 @@ from method_names import (  # noqa: E402
     RECEIVE_NSI,
     canonical_method_name,
 )
+from paper_replot import simulation_from_cache, phantom_from_cache, carotid_from_cache  # noqa: E402
 from simulation_robustness import (  # noqa: E402
     plot_angle_sweeps,
     plot_perturbations,
@@ -83,6 +83,8 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Write diagnostic assets even when publication checks fail.",
     )
+    parser.add_argument('--snapshot', action='store_true',
+                        help='Use archived published figures for GPU-rendered panels when replaying the frozen numerical record.')
     return parser.parse_args()
 
 
@@ -158,7 +160,9 @@ def copy_required(source: Path, destination: Path) -> None:
     if not source.is_file() or source.stat().st_size == 0:
         raise FileNotFoundError(f"Required figure is missing: {source}")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    temporary = destination.with_name(destination.name + ".tmp")
+    temporary.write_bytes(source.read_bytes())
+    temporary.replace(destination)
 
 
 def first(rows: Iterable[dict[str, Any]], **criteria: Any) -> dict[str, Any]:
@@ -327,7 +331,12 @@ def main() -> None:
         robustness_root / "robustness_spatial_psf.csv"
     )
 
-    simulation_rows = canonical_rows(simulation.get("metrics", []))
+    simulation_rows = simulation_from_cache(results)
+    seven_targets = read_json(results / 'seven_target_metrics/seven_target_summary.json')
+    inclusion = read_json(results / 'phantom_inclusion/inclusion_gcnr_summary.json')
+    target_records = seven_targets.get('records', [])
+    target_aggregate = {row['method']: row for row in seven_targets.get('aggregate', [])}
+    inclusion_by_method = {row['method']: row for row in inclusion.get('primary', [])}
     conventional_psf_rows = canonical_rows(
         conventional.get("experimental_psf", {}).get("metrics", [])
     )
@@ -344,6 +353,19 @@ def main() -> None:
     )
 
     problems: list[str] = []
+    if {(int(r.get('target_id', -1)), r.get('method')) for r in target_records} != {(t, m) for t in range(1, 8) for m in METHODS}:
+        problems.append('seven-target six-method measurements are incomplete')
+    if set(inclusion_by_method) != set(METHODS):
+        problems.append('inclusion gCNR comparison is incomplete')
+    for method in METHODS:
+        observed = [r for r in target_records if r.get('method') == method]
+        if len(observed) != 7 or method not in target_aggregate:
+            continue
+        for metric in ('lateral_width_mm', 'axial_width_mm', 'localization_error_mm', 'peak_to_median_background_db'):
+            values = np.asarray([finite(r[metric], metric) for r in observed])
+            stats = target_aggregate[method][metric]
+            if not np.isclose(values.mean(), stats['mean']) or not np.isclose(values.std(ddof=1), stats['sample_sd']):
+                problems.append(f'{method}: seven-target aggregate does not match the individual data')
     expected = set(METHODS)
     if (
         simulation.get("metadata_only") is not False
@@ -537,7 +559,7 @@ def main() -> None:
                 fmt(row["lateral_width_mm"], 4),
                 fmt(row["axial_width_mm"], 4),
                 fmt(row["peak_to_median_background_db"], 1),
-                fmt(row["center_to_profile_peak_db"], 1),
+                ("$" + fmt(row["center_to_profile_peak_db"], 1) + "$") if row["center_to_profile_peak_db"] < 0 else fmt(row["center_to_profile_peak_db"], 1),
             ]
         )
     write_text(
@@ -557,31 +579,57 @@ def main() -> None:
 
     conventional_table = []
     for method in METHODS:
-        conventional_table.append(
-            [
-                method,
-                fmt(psf_by_method[method]["lateral_width_mm"], 4),
-                fmt(psf_by_method[method]["peak_to_median_background_db"], 1),
-                fmt(carotid_by_view["CC"][method]["gcnr"]),
-                fmt(carotid_by_view["CL"][method]["gcnr"]),
-                fmt(kernel_by_method[method]["median_ms"], 3),
-            ]
-        )
-    write_text(
-        output / "table_conventional_baselines.tex",
-        latex_table(
-            "lrrrrr",
-            [
-                "Method",
-                "Width (mm)",
-                "Peak/background (dB)",
-                "CC gCNR",
-                "CL gCNR",
-                "Kernel (ms)",
-            ],
-            conventional_table,
-        ),
-    )
+        row = target_aggregate[method]
+        width, pbr = row['lateral_width_mm'], row['peak_to_median_background_db']
+        conventional_table.append([
+            method,
+            f"${width['mean']:.3f}\\pm{width['sample_sd']:.3f}$",
+            f"${pbr['mean']:.1f}\\pm{pbr['sample_sd']:.1f}$",
+            fmt(inclusion_by_method[method]['gcnr']),
+        ])
+    write_text(output / 'table_conventional_baselines.tex', latex_table(
+        'lrrr', ['Method', 'PSF lateral width (mm)', 'PSF peak/background (dB)', 'Inclusion gCNR'], conventional_table))
+
+    details = [r'\begin{tabular}{@{}llrrrr@{}}', r'\toprule',
+               r'Target $(x,z)$ & Method & Lateral width & Axial width & Localisation error & Peak/background \\',
+               r'(mm) & & (mm) & (mm) & (mm) & (dB) \\', r'\midrule']
+    for target in range(1, 8):
+        if target > 1:
+            details.append(r'\midrule')
+        for index, method in enumerate(METHODS):
+            row = next(r for r in target_records if r['target_id'] == target and r['method'] == method)
+            position = f"{target}: $({row['target_x_mm']:.2f},{row['target_z_mm']:.1f})$" if index == 0 else ''
+            details.append(f"{position} & {method} & {row['lateral_width_mm']:.4f}"
+                           f" & {row['axial_width_mm']:.4f} & {row['localization_error_mm']:.4f}"
+                           f" & {row['peak_to_median_background_db']:.2f} " + r'\\')
+    details += [r'\bottomrule', r'\end{tabular}']
+    write_text(output / 'table_conventional_psf_details.tex', '\n'.join(details))
+
+    carotid_table = [r'\begin{tabular}{@{}lrrrrrr@{}}', r'\toprule',
+                     r'& \multicolumn{3}{c}{Cross-sectional} & \multicolumn{3}{c}{Longitudinal} \\',
+                     r'\cmidrule(lr){2-4}\cmidrule(l){5-7}',
+                     r'Method & gCNR & CR (dB) & CNR & gCNR & CR (dB) & CNR \\', r'\midrule']
+    published_carotid = {}
+    if args.snapshot:
+        published_carotid = {r['method']: r for r in read_csv(results / 'conventional_baselines/published_carotid_metrics.csv')}
+    for method in METHODS:
+        row = [method]
+        for view in ('CC', 'CL'):
+            values = carotid_by_view[view][method]
+            for metric, precision in [('gcnr', 4), ('contrast_ratio_db', 2), ('cnr', 4)]:
+                raw = finite(values[metric], metric)
+                value = fmt(raw, precision)
+                if published_carotid:
+                    value = published_carotid[method][f'{view}_{metric}']
+                    # The archived printed table and GPU records straddle a
+                    # rounding boundary in three cells; preserve the accepted
+                    # display values within 0.6 units of their final digit.
+                    if abs(float(value) - raw) > 0.60 * 10 ** (-precision):
+                        raise ValueError(f'Published carotid precision disagrees with raw data: {view} {method} {metric}')
+                row.append(value)
+        carotid_table.append(' & '.join(row) + r' \\')
+    carotid_table += [r'\bottomrule', r'\end{tabular}']
+    write_text(output / 'table_conventional_carotid_metrics.tex', '\n'.join(carotid_table))
 
     complexity = {
         DAS: r"$O(M)$",
@@ -653,36 +701,6 @@ def main() -> None:
             r"lp{0.72\linewidth}",
             ["Method", "Fixed implementation choices"],
             parameter_rows,
-        ),
-    )
-
-    diagnostic_table = []
-    for row in profile_rows:
-        diagnostic_table.append(
-            [
-                str(int(row["target_id"])),
-                row["method"],
-                fmt(row["target_x_mm"], 1),
-                fmt(row["target_z_mm"], 1),
-                fmt(row["center_to_local_peak_db"], 1),
-                fmt(row["central_notch_depth_db"], 1),
-                "yes" if row.get("central_notch_detected") else "no",
-            ]
-        )
-    write_text(
-        output / "table_picmus_center_diagnostic.tex",
-        latex_table(
-            "rlrrrrr",
-            [
-                "Target",
-                "Method",
-                "$x$ (mm)",
-                "$z$ (mm)",
-                "Centre/peak (dB)",
-                "Notch depth (dB)",
-                "Notch",
-            ],
-            diagnostic_table,
         ),
     )
 
@@ -857,24 +875,33 @@ def main() -> None:
         / "picmus_experimental_psf_c_sensitivity.png": output
         / "supplementary"
         / "figureS9_experimental_psf_c_sensitivity.png",
-        results
-        / "conventional_baselines"
-        / "conventional_baseline_experimental_psf.png": output
-        / "supplementary"
-        / "figureS10_conventional_psf_maps.png",
-        results
-        / "conventional_baselines"
-        / "conventional_baseline_experimental_psf_profiles.png": output
-        / "supplementary"
-        / "figureS11_conventional_psf_profiles.png",
-        results
-        / "conventional_timing"
-        / "conventional_timing_summary.png": output
-        / "supplementary"
-        / "figureS12_conventional_timing.png",
+        results / 'phantom_inclusion' / 'figureS13_picmus_inclusion_rois.png':
+            output / 'supplementary' / 'figureS13_picmus_inclusion_rois.png',
     }
+    simulation_from_cache(results, output / 'figures/figure1_simulation_six_method.png')
+    phantom_from_cache(results, output / 'figures/figure2_picmus_full_phantom_six_method.png')
+    if args.snapshot:
+        carotid_from_cache(results, output / 'figures/figure4_carotid_six_method.png')
     for source, destination in figure_map.items():
+        relative = destination.relative_to(output)
+        if relative.as_posix() in {
+            'figures/figure1_simulation_six_method.png',
+            'figures/figure2_picmus_full_phantom_six_method.png',
+        } or args.snapshot and relative.as_posix() == 'figures/figure4_carotid_six_method.png':
+            continue
+        if args.snapshot and not source.is_file():
+            source = ROOT / 'paper' / relative
         copy_required(source, destination)
+
+    for obsolete in (
+        'table_picmus_center_diagnostic.tex',
+        'supplementary/figureS10_conventional_psf_maps.png',
+        'supplementary/figureS11_conventional_psf_profiles.png',
+        'supplementary/figureS12_conventional_timing.png',
+    ):
+        path = output / obsolete
+        if path.is_file():
+            path.unlink()
 
     manifest = {
         "publication_checks_passed": not problems,
@@ -892,7 +919,9 @@ def main() -> None:
         "generated_files": sorted(
             str(path.relative_to(output))
             for path in output.rglob("*")
-            if path.is_file()
+            if path.is_file() and path.name not in {
+                "revision_asset_manifest.json", "paper_reproduction_manifest.json"
+            }
         ),
     }
     write_text(

@@ -1,5 +1,7 @@
 # Validation notes
 
+> Historical validation record. The final 15 October 2026 paper workflow is documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+
 The following checks were completed after adding the reviewer-requested
 conventional baselines:
 

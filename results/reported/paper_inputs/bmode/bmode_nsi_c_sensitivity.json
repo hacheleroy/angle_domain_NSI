@@ -1,0 +1,156 @@
+{
+  "primary_c": 0.05,
+  "c_values": [
+    0.02,
+    0.05,
+    0.1,
+    0.2
+  ],
+  "raw_sign_weight_convention": true,
+  "rows": [
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Receive-NSI",
+      "c": 0.02,
+      "gcnr": 0.587385794282346,
+      "contrast_ratio_db": 29.97006607055664,
+      "cnr": 0.3894503116607666
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Angle-NSI",
+      "c": 0.02,
+      "gcnr": 0.5733274388446803,
+      "contrast_ratio_db": 27.066986083984375,
+      "cnr": 0.49414828419685364
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Receive-NSI",
+      "c": 0.05,
+      "gcnr": 0.5838638373121132,
+      "contrast_ratio_db": 29.67664909362793,
+      "cnr": 0.4277360141277313
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Angle-NSI",
+      "c": 0.05,
+      "gcnr": 0.5701296787503685,
+      "contrast_ratio_db": 27.38174057006836,
+      "cnr": 0.4894043505191803
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Receive-NSI",
+      "c": 0.1,
+      "gcnr": 0.5804450338933098,
+      "contrast_ratio_db": 29.955751419067383,
+      "cnr": 0.4349115788936615
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Angle-NSI",
+      "c": 0.1,
+      "gcnr": 0.5645299145299145,
+      "contrast_ratio_db": 27.789993286132812,
+      "cnr": 0.49296948313713074
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Receive-NSI",
+      "c": 0.2,
+      "gcnr": 0.5991895078101974,
+      "contrast_ratio_db": 30.016990661621094,
+      "cnr": 0.4690099358558655
+    },
+    {
+      "view": "CL",
+      "view_label": "Longitudinal",
+      "method": "Angle-NSI",
+      "c": 0.2,
+      "gcnr": 0.5736368994989685,
+      "contrast_ratio_db": 28.603469848632812,
+      "cnr": 0.5491580963134766
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Receive-NSI",
+      "c": 0.02,
+      "gcnr": 0.4597918022121015,
+      "contrast_ratio_db": 21.506893157958984,
+      "cnr": 0.406745582818985
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Angle-NSI",
+      "c": 0.02,
+      "gcnr": 0.45961436091559715,
+      "contrast_ratio_db": 20.093963623046875,
+      "cnr": 0.36230242252349854
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Receive-NSI",
+      "c": 0.05,
+      "gcnr": 0.47533565978588754,
+      "contrast_ratio_db": 21.81674575805664,
+      "cnr": 0.40227121114730835
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Angle-NSI",
+      "c": 0.05,
+      "gcnr": 0.44925178919973974,
+      "contrast_ratio_db": 20.217514038085938,
+      "cnr": 0.36647987365722656
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Receive-NSI",
+      "c": 0.1,
+      "gcnr": 0.4769444608741942,
+      "contrast_ratio_db": 22.113544464111328,
+      "cnr": 0.4116842746734619
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Angle-NSI",
+      "c": 0.1,
+      "gcnr": 0.4578547347252617,
+      "contrast_ratio_db": 20.847761154174805,
+      "cnr": 0.3796096742153168
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Receive-NSI",
+      "c": 0.2,
+      "gcnr": 0.4613828591707577,
+      "contrast_ratio_db": 22.434181213378906,
+      "cnr": 0.43997883796691895
+    },
+    {
+      "view": "CC",
+      "view_label": "Cross-section",
+      "method": "Angle-NSI",
+      "c": 0.2,
+      "gcnr": 0.46291181167563733,
+      "contrast_ratio_db": 21.48839569091797,
+      "cnr": 0.37822461128234863
+    }
+  ]
+}

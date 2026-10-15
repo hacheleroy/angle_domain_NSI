@@ -1,0 +1,3 @@
+# Preserve the exact serialization of frozen publication sources and inputs.
+paper/** -text whitespace=-trailing-space
+results/reported/paper_inputs/** -text whitespace=-trailing-space

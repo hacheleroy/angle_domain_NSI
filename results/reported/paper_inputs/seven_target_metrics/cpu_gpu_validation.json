@@ -1,0 +1,57 @@
+[
+  {
+    "method": "DAS",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 2.9734517147717633e-07
+  },
+  {
+    "method": "DAS",
+    "profile": "axial",
+    "maximum_relative_amplitude_error": 3.1085805498283774e-07
+  },
+  {
+    "method": "CF-DAS",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 3.5396598086052847e-07
+  },
+  {
+    "method": "CF-DAS",
+    "profile": "axial",
+    "maximum_relative_amplitude_error": 3.5710507415063673e-07
+  },
+  {
+    "method": "Receive-NSI",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 1.26466717516826e-05
+  },
+  {
+    "method": "Receive-NSI",
+    "profile": "axial",
+    "maximum_relative_amplitude_error": 1.819703752229137e-05
+  },
+  {
+    "method": "Angle-NSI",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 1.341735954749955e-05
+  },
+  {
+    "method": "Angle-NSI",
+    "profile": "axial",
+    "maximum_relative_amplitude_error": 7.879351371795074e-06
+  },
+  {
+    "method": "MV",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 2.6997262909497184e-06
+  },
+  {
+    "method": "MV",
+    "profile": "axial",
+    "maximum_relative_amplitude_error": 1.2666031887368579e-06
+  },
+  {
+    "method": "DMAS",
+    "profile": "lateral",
+    "maximum_relative_amplitude_error": 5.652330633564896e-07
+  }
+]

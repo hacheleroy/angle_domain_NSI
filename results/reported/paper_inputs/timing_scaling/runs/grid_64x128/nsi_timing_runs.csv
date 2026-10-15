@@ -1,0 +1,201 @@
+configuration_label,scope,transfers,receive_input_mode,angles,elements,samples,nx,nz,repetition,order_within_repetition,method,elapsed_seconds,elapsed_milliseconds
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,1,1,Angular CF-DAS,0.013491171000168833,13.491171000168833
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,1,2,DAS / coherent compounding,0.01542413699962708,15.42413699962708
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,1,3,Angular NSI (streaming),0.015654634999918926,15.654634999918926
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,1,4,Conventional NSI (two fields),0.01754620099973181,17.54620099973181
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,2,1,Angular CF-DAS,0.01453877999983888,14.53877999983888
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,2,2,DAS / coherent compounding,0.016052564999881724,16.052564999881724
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,2,3,Angular NSI (streaming),0.013264277999951446,13.264277999951446
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,2,4,Conventional NSI (two fields),0.019742845999644487,19.742845999644487
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,3,1,Angular CF-DAS,0.014728984000157652,14.728984000157652
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,3,2,DAS / coherent compounding,0.015035489999718266,15.035489999718266
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,3,3,Conventional NSI (two fields),0.01618259199995009,16.18259199995009
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,3,4,Angular NSI (streaming),0.01630058499995357,16.30058499995357
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,4,1,Conventional NSI (two fields),0.016027950000079727,16.027950000079727
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,4,2,Angular CF-DAS,0.01559176099999604,15.59176099999604
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,4,3,Angular NSI (streaming),0.015044830000078946,15.044830000078946
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,4,4,DAS / coherent compounding,0.014395602000149665,14.395602000149665
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,5,1,Angular CF-DAS,0.014439812000091479,14.439812000091479
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,5,2,Conventional NSI (two fields),0.01805659999990894,18.05659999990894
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,5,3,Angular NSI (streaming),0.01308095099966522,13.08095099966522
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,5,4,DAS / coherent compounding,0.015253619000304752,15.253619000304752
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,6,1,Angular CF-DAS,0.014503109000088443,14.503109000088443
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,6,2,Conventional NSI (two fields),0.01866828800029907,18.66828800029907
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,6,3,Angular NSI (streaming),0.013461006999932579,13.461006999932579
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,6,4,DAS / coherent compounding,0.015095963000021584,15.095963000021584
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,7,1,DAS / coherent compounding,0.013579207000020688,13.579207000020688
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,7,2,Conventional NSI (two fields),0.017549013999996532,17.549013999996532
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,7,3,Angular NSI (streaming),0.013130031999935454,13.130031999935454
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,7,4,Angular CF-DAS,0.015879610999945726,15.879610999945726
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,8,1,Angular NSI (streaming),0.013895085000058316,13.895085000058316
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,8,2,Angular CF-DAS,0.015923090999876877,15.923090999876877
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,8,3,Conventional NSI (two fields),0.015512079000018275,15.512079000018275
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,8,4,DAS / coherent compounding,0.01431165099984355,14.31165099984355
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,9,1,Angular CF-DAS,0.015465112000129011,15.465112000129011
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,9,2,DAS / coherent compounding,0.01397107100001449,13.97107100001449
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,9,3,Angular NSI (streaming),0.013249672000256396,13.249672000256396
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,9,4,Conventional NSI (two fields),0.015885892999904172,15.885892999904172
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,10,1,Angular NSI (streaming),0.014579549000245606,14.579549000245606
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,10,2,Conventional NSI (two fields),0.01659685000004174,16.59685000004174
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,10,3,Angular CF-DAS,0.01627485000017259,16.27485000017259
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,10,4,DAS / coherent compounding,0.02608004100011385,26.08004100011385
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,11,1,Conventional NSI (two fields),0.015943185000196536,15.943185000196536
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,11,2,Angular NSI (streaming),0.015723321000223223,15.723321000223223
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,11,3,Angular CF-DAS,0.013993275999837351,13.993275999837351
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,11,4,DAS / coherent compounding,0.014366969000093377,14.366969000093377
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,12,1,Angular CF-DAS,0.019668674000058672,19.668674000058672
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,12,2,Conventional NSI (two fields),0.026838554999812914,26.838554999812914
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,12,3,Angular NSI (streaming),0.01883856799986461,18.83856799986461
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,12,4,DAS / coherent compounding,0.013299707999976818,13.299707999976818
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,13,1,Angular CF-DAS,0.016096223999738868,16.096223999738868
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,13,2,Conventional NSI (two fields),0.015677910999784217,15.677910999784217
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,13,3,Angular NSI (streaming),0.01446866800006319,14.46866800006319
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,13,4,DAS / coherent compounding,0.012435943000127736,12.435943000127736
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,14,1,Angular NSI (streaming),0.016229833000124927,16.229833000124927
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,14,2,Conventional NSI (two fields),0.015996807000192348,15.996807000192348
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,14,3,Angular CF-DAS,0.015034864999961428,15.034864999961428
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,14,4,DAS / coherent compounding,0.012505219000104262,12.505219000104262
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,15,1,DAS / coherent compounding,0.015686031999848637,15.686031999848637
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,15,2,Angular NSI (streaming),0.013429266000002826,13.429266000002826
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,15,3,Angular CF-DAS,0.0171552699998756,17.1552699998756
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,15,4,Conventional NSI (two fields),0.015607166000336292,15.607166000336292
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,16,1,Angular CF-DAS,0.015775579000091966,15.775579000091966
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,16,2,Angular NSI (streaming),0.013390073999744345,13.390073999744345
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,16,3,DAS / coherent compounding,0.012525581999852875,12.525581999852875
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,16,4,Conventional NSI (two fields),0.016160946000127296,16.160946000127296
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,17,1,Angular CF-DAS,0.01650709800014738,16.50709800014738
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,17,2,Conventional NSI (two fields),0.017955171999801678,17.955171999801678
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,17,3,DAS / coherent compounding,0.013204944000335672,13.204944000335672
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,17,4,Angular NSI (streaming),0.01480569099976492,14.80569099976492
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,18,1,Angular CF-DAS,0.01541117899978417,15.41117899978417
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,18,2,Angular NSI (streaming),0.015309270999750879,15.30927099975088
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,18,3,Conventional NSI (two fields),0.015705658000115363,15.705658000115363
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,18,4,DAS / coherent compounding,0.013531968999814126,13.531968999814126
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,19,1,Angular NSI (streaming),0.015060231000006752,15.060231000006752
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,19,2,Conventional NSI (two fields),0.01705291700000089,17.05291700000089
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,19,3,Angular CF-DAS,0.013421622999885585,13.421622999885585
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,19,4,DAS / coherent compounding,0.01588707099972453,15.887070999724529
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,20,1,DAS / coherent compounding,0.014200419999724545,14.200419999724545
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,20,2,Angular CF-DAS,0.015355933000137156,15.355933000137156
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,20,3,Conventional NSI (two fields),0.015081050999924628,15.081050999924628
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,20,4,Angular NSI (streaming),0.014500794000014139,14.500794000014139
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,21,1,Conventional NSI (two fields),0.01735451499962437,17.35451499962437
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,21,2,Angular NSI (streaming),0.014874473999952897,14.874473999952897
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,21,3,Angular CF-DAS,0.014522094999847468,14.522094999847468
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,21,4,DAS / coherent compounding,0.015060071999869251,15.060071999869251
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,22,1,Conventional NSI (two fields),0.016882661000181542,16.882661000181542
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,22,2,DAS / coherent compounding,0.013954325999748107,13.954325999748107
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,22,3,Angular CF-DAS,0.013516540000182431,13.516540000182431
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,22,4,Angular NSI (streaming),0.014786477999678027,14.786477999678027
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,23,1,Angular NSI (streaming),0.014572935000160214,14.572935000160214
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,23,2,Angular CF-DAS,0.014820512999904167,14.820512999904167
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,23,3,DAS / coherent compounding,0.012961838000137504,12.961838000137504
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,23,4,Conventional NSI (two fields),0.015265158000147494,15.265158000147494
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,24,1,Angular NSI (streaming),0.015093824999894423,15.093824999894423
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,24,2,DAS / coherent compounding,0.013460726000175782,13.460726000175782
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,24,3,Angular CF-DAS,0.015274314999714989,15.274314999714989
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,24,4,Conventional NSI (two fields),0.01607568600002196,16.07568600002196
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,25,1,Angular CF-DAS,0.0169466730003478,16.9466730003478
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,25,2,Conventional NSI (two fields),0.01745576199982679,17.45576199982679
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,25,3,DAS / coherent compounding,0.01359916899991731,13.59916899991731
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,25,4,Angular NSI (streaming),0.013103619000048639,13.103619000048639
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,26,1,Conventional NSI (two fields),0.018242407999878196,18.242407999878196
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,26,2,Angular CF-DAS,0.013996522999605077,13.996522999605077
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,26,3,DAS / coherent compounding,0.016172724000171,16.172724000171
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,26,4,Angular NSI (streaming),0.013426932000129455,13.426932000129455
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,27,1,Conventional NSI (two fields),0.018576662000214128,18.576662000214128
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,27,2,DAS / coherent compounding,0.012272813999970822,12.272813999970822
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,27,3,Angular NSI (streaming),0.014552443999946263,14.552443999946263
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,27,4,Angular CF-DAS,0.013466525999774603,13.466525999774603
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,28,1,Conventional NSI (two fields),0.018670531999759987,18.670531999759987
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,28,2,Angular NSI (streaming),0.013300269999945158,13.300269999945158
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,28,3,Angular CF-DAS,0.015433654999924329,15.433654999924329
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,28,4,DAS / coherent compounding,0.012233095999818033,12.233095999818033
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,29,1,Angular CF-DAS,0.01706347499975891,17.06347499975891
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,29,2,Conventional NSI (two fields),0.01626449600007618,16.26449600007618
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,29,3,DAS / coherent compounding,0.014442966999922646,14.442966999922646
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,29,4,Angular NSI (streaming),0.013606024000182515,13.606024000182515
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,30,1,Angular CF-DAS,0.022316339000099106,22.316339000099106
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,30,2,DAS / coherent compounding,0.01283321100027024,12.83321100027024
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,30,3,Conventional NSI (two fields),0.016561027000079775,16.561027000079775
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,30,4,Angular NSI (streaming),0.0136792289999903,13.6792289999903
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,31,1,Angular CF-DAS,0.01724552699988635,17.24552699988635
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,31,2,Angular NSI (streaming),0.013449179999952321,13.449179999952321
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,31,3,DAS / coherent compounding,0.014542616000198905,14.542616000198905
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,31,4,Conventional NSI (two fields),0.017245311999886326,17.245311999886326
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,32,1,Angular CF-DAS,0.01841452299959201,18.41452299959201
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,32,2,DAS / coherent compounding,0.013341461999971216,13.341461999971216
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,32,3,Conventional NSI (two fields),0.018091443999765033,18.091443999765033
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,32,4,Angular NSI (streaming),0.015558713999780593,15.558713999780593
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,33,1,Conventional NSI (two fields),0.01841597000020556,18.41597000020556
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,33,2,Angular NSI (streaming),0.013347146000342036,13.347146000342036
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,33,3,DAS / coherent compounding,0.014842313999906764,14.842313999906764
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,33,4,Angular CF-DAS,0.015067461999933585,15.067461999933585
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,34,1,Angular NSI (streaming),0.018607175999932224,18.607175999932224
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,34,2,Conventional NSI (two fields),0.01680313799988653,16.80313799988653
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,34,3,Angular CF-DAS,0.015674870000111696,15.674870000111696
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,34,4,DAS / coherent compounding,0.012724732000151562,12.724732000151562
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,35,1,Conventional NSI (two fields),0.01825713900007031,18.25713900007031
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,35,2,DAS / coherent compounding,0.012829827000132354,12.829827000132354
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,35,3,Angular CF-DAS,0.01628701599975102,16.28701599975102
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,35,4,Angular NSI (streaming),0.013389383000230737,13.389383000230737
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,36,1,Angular NSI (streaming),0.016583967999849847,16.583967999849847
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,36,2,Conventional NSI (two fields),0.015958750000208966,15.958750000208966
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,36,3,DAS / coherent compounding,0.015003801999682764,15.003801999682764
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,36,4,Angular CF-DAS,0.0144643730000098,14.4643730000098
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,37,1,DAS / coherent compounding,0.016163381999831472,16.163381999831472
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,37,2,Angular CF-DAS,0.013717892999920878,13.717892999920878
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,37,3,Conventional NSI (two fields),0.016906071999983396,16.906071999983396
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,37,4,Angular NSI (streaming),0.01353976500013232,13.53976500013232
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,38,1,Angular NSI (streaming),0.015762791999804904,15.762791999804904
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,38,2,Conventional NSI (two fields),0.02398220399982165,23.98220399982165
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,38,3,DAS / coherent compounding,0.01349078199973519,13.49078199973519
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,38,4,Angular CF-DAS,0.014213944999937667,14.213944999937667
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,39,1,Angular CF-DAS,0.015610704000209807,15.610704000209807
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,39,2,DAS / coherent compounding,0.012961962000190397,12.961962000190397
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,39,3,Conventional NSI (two fields),0.017158708000351908,17.158708000351908
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,39,4,Angular NSI (streaming),0.013141728999926272,13.141728999926272
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,40,1,Angular NSI (streaming),0.015237909999996191,15.237909999996191
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,40,2,Conventional NSI (two fields),0.016084328000033565,16.084328000033565
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,40,3,DAS / coherent compounding,0.013949798999874474,13.949798999874474
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,40,4,Angular CF-DAS,0.0136687880003592,13.6687880003592
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,41,1,DAS / coherent compounding,0.013528663000215602,13.528663000215602
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,41,2,Angular CF-DAS,0.015160355000261916,15.160355000261916
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,41,3,Angular NSI (streaming),0.014850991000002978,14.850991000002978
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,41,4,Conventional NSI (two fields),0.017486163999819837,17.486163999819837
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,42,1,Angular NSI (streaming),0.013787874000172451,13.787874000172451
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,42,2,DAS / coherent compounding,0.013458387999889965,13.458387999889965
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,42,3,Conventional NSI (two fields),0.015836247999686748,15.836247999686748
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,42,4,Angular CF-DAS,0.016488556999775028,16.488556999775028
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,43,1,Conventional NSI (two fields),0.01957972400032304,19.57972400032304
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,43,2,Angular CF-DAS,0.01394008900024346,13.94008900024346
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,43,3,Angular NSI (streaming),0.013508044999980484,13.508044999980484
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,43,4,DAS / coherent compounding,0.013670942000317154,13.670942000317154
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,44,1,Angular NSI (streaming),0.014261043000260543,14.261043000260543
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,44,2,DAS / coherent compounding,0.014560921999873244,14.560921999873244
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,44,3,Conventional NSI (two fields),0.015597876999891014,15.597876999891014
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,44,4,Angular CF-DAS,0.01642041299965058,16.42041299965058
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,45,1,DAS / coherent compounding,0.014423107999846252,14.423107999846252
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,45,2,Conventional NSI (two fields),0.016930666000007477,16.930666000007477
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,45,3,Angular CF-DAS,0.013325393999821245,13.325393999821245
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,45,4,Angular NSI (streaming),0.015078004999850236,15.078004999850236
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,46,1,Angular NSI (streaming),0.015003858999989461,15.003858999989461
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,46,2,Conventional NSI (two fields),0.01704962700023316,17.04962700023316
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,46,3,DAS / coherent compounding,0.012467528999877686,12.467528999877686
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,46,4,Angular CF-DAS,0.015418989999943733,15.418989999943733
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,47,1,Angular NSI (streaming),0.014477364999947895,14.477364999947895
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,47,2,Angular CF-DAS,0.01535280200005218,15.35280200005218
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,47,3,DAS / coherent compounding,0.012377962000300613,12.377962000300613
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,47,4,Conventional NSI (two fields),0.017493795000063983,17.493795000063983
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,48,1,Angular NSI (streaming),0.014776105999771971,14.776105999771971
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,48,2,Conventional NSI (two fields),0.018850314000246726,18.850314000246726
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,48,3,DAS / coherent compounding,0.016225915999712015,16.225915999712015
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,48,4,Angular CF-DAS,0.01647393099983674,16.47393099983674
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,49,1,Angular CF-DAS,0.01516868999988219,15.16868999988219
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,49,2,Angular NSI (streaming),0.015189638000265404,15.189638000265404
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,49,3,DAS / coherent compounding,0.012245613999766647,12.245613999766647
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,49,4,Conventional NSI (two fields),0.016861113000231853,16.861113000231853
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,50,1,Conventional NSI (two fields),0.016386905000217666,16.386905000217666
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,50,2,Angular NSI (streaming),0.016519715999947948,16.519715999947948
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,50,3,Angular CF-DAS,0.014753265999843279,14.75326599984328
+grid_64x128,reconstruction,both,device-weighted,17,128,2048,64,128,50,4,DAS / coherent compounding,0.015156896000007691,15.156896000007691

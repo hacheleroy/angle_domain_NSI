@@ -1,0 +1,153 @@
+{
+  "primary_c": 0.1,
+  "c_values": [
+    0.02,
+    0.05,
+    0.1,
+    0.2
+  ],
+  "cross_section_depth_mm": 10.958579881656803,
+  "angular_weight_diagnostics": {
+    "angle_count": 9,
+    "negative_count": 4,
+    "broadside_count": 1,
+    "positive_count": 4,
+    "weight_sum": 0.0,
+    "weight_l1_norm": 8.0,
+    "symmetric_angle_pairs": true,
+    "antisymmetric_weights": true
+  },
+  "svd_filter": {
+    "frame_count": 400,
+    "zeroed_components_matlab_indexing": [
+      "1--10",
+      "350--400"
+    ],
+    "zeroed_slices_python_indexing": [
+      "[:10]",
+      "[349:]"
+    ],
+    "source_convention": "Open-NSI Basic/SVDFilt.m with InitCutOff=10 and EndCutOff=50"
+  },
+  "matching_interpretation": "DAS is a reconstruction reference, not independent ground truth; matched fractions quantify positional concordance, not sensitivity.",
+  "thresholding": {
+    "prominence_db": 6.0,
+    "minimum_peak_distance_mm": 0.2,
+    "minimum_height_db": -25.0,
+    "profiles_normalized_independently": true
+  },
+  "rows": [
+    {
+      "method": "Receive-NSI",
+      "c": 0.02,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 5,
+      "matched_count_at_0p15_mm": 4,
+      "matched_fraction_at_0p15_mm": 0.6666666666666666,
+      "matched_count_at_0p35_mm": 4,
+      "matched_fraction_at_0p35_mm": 0.6666666666666666,
+      "mean_strictly_matched_width_mm": 0.1206383472024749,
+      "mean_signed_displacement_within_0p35_mm": -0.025210084033613578,
+      "mean_absolute_displacement_within_0p35_mm": 0.025210084033613578,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.06837118664785755
+    },
+    {
+      "method": "Angle-NSI",
+      "c": 0.02,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 4,
+      "matched_count_at_0p15_mm": 3,
+      "matched_fraction_at_0p15_mm": 0.5,
+      "matched_count_at_0p35_mm": 4,
+      "matched_fraction_at_0p35_mm": 0.6666666666666666,
+      "mean_strictly_matched_width_mm": 0.11663780129403545,
+      "mean_signed_displacement_within_0p35_mm": 0.07563025210084018,
+      "mean_absolute_displacement_within_0p35_mm": 0.07563025210084018,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.15493148557784697
+    },
+    {
+      "method": "Receive-NSI",
+      "c": 0.05,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 6,
+      "matched_count_at_0p15_mm": 5,
+      "matched_fraction_at_0p15_mm": 0.8333333333333334,
+      "matched_count_at_0p35_mm": 5,
+      "matched_fraction_at_0p35_mm": 0.8333333333333334,
+      "mean_strictly_matched_width_mm": 0.1113041823488028,
+      "mean_signed_displacement_within_0p35_mm": -2.6645352591003756e-16,
+      "mean_absolute_displacement_within_0p35_mm": 0.04033613445378146,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.1370726731206831
+    },
+    {
+      "method": "Angle-NSI",
+      "c": 0.05,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 7,
+      "matched_count_at_0p15_mm": 3,
+      "matched_fraction_at_0p15_mm": 0.5,
+      "matched_count_at_0p35_mm": 6,
+      "matched_fraction_at_0p35_mm": 1.0,
+      "mean_strictly_matched_width_mm": 0.1235862913266148,
+      "mean_signed_displacement_within_0p35_mm": 0.1344537815126048,
+      "mean_absolute_displacement_within_0p35_mm": 0.1344537815126048,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.23530753059611179
+    },
+    {
+      "method": "Receive-NSI",
+      "c": 0.1,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 6,
+      "matched_count_at_0p15_mm": 5,
+      "matched_fraction_at_0p15_mm": 0.8333333333333334,
+      "matched_count_at_0p35_mm": 5,
+      "matched_fraction_at_0p35_mm": 0.8333333333333334,
+      "mean_strictly_matched_width_mm": 0.11105918717224306,
+      "mean_signed_displacement_within_0p35_mm": -2.6645352591003756e-16,
+      "mean_absolute_displacement_within_0p35_mm": 0.04033613445378146,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.22543115711135808
+    },
+    {
+      "method": "Angle-NSI",
+      "c": 0.1,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 7,
+      "matched_count_at_0p15_mm": 3,
+      "matched_fraction_at_0p15_mm": 0.5,
+      "matched_count_at_0p35_mm": 6,
+      "matched_fraction_at_0p35_mm": 1.0,
+      "mean_strictly_matched_width_mm": 0.18407208030978506,
+      "mean_signed_displacement_within_0p35_mm": 0.1344537815126048,
+      "mean_absolute_displacement_within_0p35_mm": 0.1344537815126048,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.37136325911390883
+    },
+    {
+      "method": "Receive-NSI",
+      "c": 0.2,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 8,
+      "matched_count_at_0p15_mm": 6,
+      "matched_fraction_at_0p15_mm": 1.0,
+      "matched_count_at_0p35_mm": 6,
+      "matched_fraction_at_0p35_mm": 1.0,
+      "mean_strictly_matched_width_mm": 0.12324330940791062,
+      "mean_signed_displacement_within_0p35_mm": -0.016806722689075865,
+      "mean_absolute_displacement_within_0p35_mm": 0.05042016806722686,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.3276558589802141
+    },
+    {
+      "method": "Angle-NSI",
+      "c": 0.2,
+      "das_reference_peak_count": 6,
+      "detected_peak_count": 8,
+      "matched_count_at_0p15_mm": 3,
+      "matched_fraction_at_0p15_mm": 0.5,
+      "matched_count_at_0p35_mm": 6,
+      "matched_fraction_at_0p35_mm": 1.0,
+      "mean_strictly_matched_width_mm": 0.20637639937108565,
+      "mean_signed_displacement_within_0p35_mm": 0.1344537815126048,
+      "mean_absolute_displacement_within_0p35_mm": 0.1344537815126048,
+      "peak_power_amplitude_ratio_to_c_times_das": 0.500452499131783
+    }
+  ]
+}

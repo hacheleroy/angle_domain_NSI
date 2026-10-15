@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import os
+import platform
 import shlex
 import subprocess
 import sys
@@ -24,6 +26,8 @@ DEFAULT_STEPS = (
     "experimental-psf",
     "picmus-full-phantom",
     "conventional-baselines",
+    "seven-target-metrics",
+    "phantom-inclusion",
     "timing",
     "conventional-timing",
     "manuscript-assets",
@@ -68,6 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--timing-warmups", type=int, default=10)
     parser.add_argument("--timing-repetitions", type=int, default=50)
+    parser.add_argument("--psf-workers", type=int, default=2)
     return parser.parse_args()
 
 
@@ -168,6 +173,28 @@ def step_definitions(
             "env": common_env,
             "expected": output_root / "conventional_baselines" / "conventional_baseline_summary.json",
         },
+        "seven-target-metrics": {
+            "command": [
+                python,
+                str(root / "src" / "picmus_seven_target_metrics.py"),
+                "--data-dir", str(data_root / "PICMUS" / "resolution_distorsion"),
+                "--reference-profiles", str(output_root / "conventional_baselines" / "conventional_baseline_experimental_psf_profiles.npz"),
+                "--workers", str(getattr(args, "psf_workers", 2)),
+                "--output-dir", str(output_root / "seven_target_metrics"),
+            ],
+            "env": common_env,
+            "expected": output_root / "seven_target_metrics" / "seven_target_summary.json",
+        },
+        "phantom-inclusion": {
+            "command": [
+                python,
+                str(root / "src" / "picmus_inclusion_metrics.py"),
+                "--cache", str(output_root / "picmus_full_phantom" / "picmus_full_phantom_cache.npz"),
+                "--output-dir", str(output_root / "phantom_inclusion"),
+            ],
+            "env": common_env,
+            "expected": output_root / "phantom_inclusion" / "inclusion_gcnr_summary.json",
+        },
         "timing": {
             "command": [
                 python,
@@ -224,7 +251,7 @@ def reusable_output(
         return False
     # Assets are cheap to regenerate and must always reflect the newest
     # upstream JSON/CSV files.
-    if name == "manuscript-assets":
+    if name in {"manuscript-assets", "seven-target-metrics", "phantom-inclusion"}:
         return False
     if name not in {
         "timing", "experimental-psf", "conventional-baselines",
@@ -397,7 +424,19 @@ def main() -> None:
     if not steps or unknown:
         raise SystemExit(f"Unknown or empty --steps selection: {unknown}")
     manifest_path = output_root / "revision_gpu_run_manifest.json"
+    installed_packages = {}
+    for distribution in (
+        "numpy", "scipy", "matplotlib", "h5py", "cupy-cuda12x",
+        "mach-beamform", "PyMUST", "pillow", "threadpoolctl",
+    ):
+        try:
+            installed_packages[distribution] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            installed_packages[distribution] = None
     manifest: dict[str, Any] = {
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "installed_packages": installed_packages,
         "schema_version": 1,
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "device": str(args.device),

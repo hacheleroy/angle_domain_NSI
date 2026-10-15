@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "methods": [
+    "DAS",
+    "CF-DAS",
+    "MV",
+    "DMAS",
+    "Receive-NSI",
+    "Angle-NSI"
+  ],
+  "nsi_c": 0.05,
+  "angles_deg": [
+    -4.0,
+    -3.5,
+    -3.0,
+    -2.5,
+    -2.0,
+    -1.5,
+    -1.0,
+    -0.5,
+    0.0,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0
+  ],
+  "target_mm": [
+    0.0,
+    0.0,
+    20.0
+  ],
+  "map_spacing_mm": [
+    0.02,
+    0.02
+  ],
+  "dmas_z_spacing_mm": 0.01,
+  "profile_spacing_mm": 0.000390625,
+  "full_receive_aperture": true,
+  "cf_definition": "|sum_m x_m|^2/(M sum_m |x_m|^2), applied to receive DAS for each transmit angle",
+  "dmas_definition": "Matrone signed-square-root pair sum, band-pass around 2 f0, analytic envelope",
+  "mv": {
+    "subarray_fraction": 0.5,
+    "diagonal_loading_coefficient": 0.01,
+    "temporal_half_window_samples": 0,
+    "scale_to_das_amplitude": true,
+    "chunk_pixels": 32
+  },
+  "metadata_only": false,
+  "publication_ready": true,
+  "map_shape": [
+    151,
+    151
+  ],
+  "profile_sample_counts": {
+    "DAS": 5121,
+    "CF-DAS": 5121,
+    "MV": 5121,
+    "DMAS": 151,
+    "Receive-NSI": 5121,
+    "Angle-NSI": 5121
+  },
+  "metrics": [
+    {
+      "method": "DAS",
+      "lateral_width_mm": 0.22275082679028524,
+      "axial_width_mm": 0.7201698498094373,
+      "peak_x_mm": 0.0,
+      "peak_z_mm": 20.099998474121094,
+      "peak_to_median_background_db": 56.92199535836569,
+      "lateral_profile_spacing_mm": 0.0003906264901161194,
+      "lateral_samples_per_minus6_db_width": 570.2399291992188,
+      "center_to_profile_peak_db": 0.0
+    },
+    {
+      "method": "CF-DAS",
+      "lateral_width_mm": 0.13686994251747941,
+      "axial_width_mm": 0.4834547092154615,
+      "peak_x_mm": 0.0,
+      "peak_z_mm": 20.079999923706055,
+      "peak_to_median_background_db": 90.55297876093587,
+      "lateral_profile_spacing_mm": 0.0003906264901161194,
+      "lateral_samples_per_minus6_db_width": 350.3857116699219,
+      "center_to_profile_peak_db": 0.0
+    },
+    {
+      "method": "MV",
+      "lateral_width_mm": 0.22801609653836152,
+      "axial_width_mm": 0.7342223089700006,
+      "peak_x_mm": 0.0,
+      "peak_z_mm": 20.099998474121094,
+      "peak_to_median_background_db": 73.53719275688304,
+      "lateral_profile_spacing_mm": 0.0003906264901161194,
+      "lateral_samples_per_minus6_db_width": 583.718994140625,
+      "center_to_profile_peak_db": 0.0
+    },
+    {
+      "method": "DMAS",
+      "lateral_width_mm": 0.23023601958430104,
+      "axial_width_mm": 0.1382993316391392,
+      "peak_x_mm": -0.03999999910593033,
+      "peak_z_mm": 20.67999839782715,
+      "peak_to_median_background_db": 63.35476395521582,
+      "lateral_profile_spacing_mm": 0.019999980926513672,
+      "lateral_samples_per_minus6_db_width": 11.511812210083008,
+      "center_to_profile_peak_db": 0.0
+    },
+    {
+      "method": "Receive-NSI",
+      "lateral_width_mm": 0.008854346677437917,
+      "axial_width_mm": 0.7201709668640106,
+      "peak_x_mm": 0.0,
+      "peak_z_mm": 20.099998474121094,
+      "peak_to_median_background_db": 120.35908487494996,
+      "lateral_profile_spacing_mm": 0.0003906264901161194,
+      "lateral_samples_per_minus6_db_width": 22.66703987121582,
+      "center_to_profile_peak_db": 0.0
+    },
+    {
+      "method": "Angle-NSI",
+      "lateral_width_mm": 0.1830370895690514,
+      "axial_width_mm": 0.7201680070334255,
+      "peak_x_mm": 0.0,
+      "peak_z_mm": 20.099998474121094,
+      "peak_to_median_background_db": 95.94831068371863,
+      "lateral_profile_spacing_mm": 0.0003906264901161194,
+      "lateral_samples_per_minus6_db_width": 468.5731506347656,
+      "center_to_profile_peak_db": 0.0
+    }
+  ],
+  "dmas_filter": {
+    "lower_stop_ratio": 1.5,
+    "lower_pass_ratio": 1.75,
+    "upper_pass_ratio": 2.5,
+    "upper_stop_ratio": 2.75,
+    "attenuation_db": 60.0,
+    "pair_product": "sign(si*sj)*sqrt(abs(si*sj)), i<j",
+    "filter_domain": "focused real-RF depth traces",
+    "analytic_signal": "FFT Hilbert transform after band-pass",
+    "reference": "Matrone et al., IEEE TMI 2015",
+    "ustb_reference_commit": "a539fbea0e08a6acc754b89b111c1b1a699ee830",
+    "center_frequency_hz": 7600000.0,
+    "depth_sampling_frequency_hz": 77168303.57289527,
+    "edges_hz": [
+      11400000.0,
+      13300000.0,
+      19000000.0,
+      20900000.0
+    ],
+    "fir_cutoff_hz": [
+      12350000.0,
+      19950000.0
+    ],
+    "fir_num_taps": 149,
+    "fir_group_delay_samples": 74,
+    "kaiser_beta": 5.65326,
+    "lateral_batch_sizes": [
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      7
+    ],
+    "full_receive_aperture": true,
+    "published_method_label": "DMAS"
+  },
+  "elapsed_seconds": 31.974892030000092,
+  "artifacts": {
+    "figure": "simulation_six_method_comparison.png",
+    "metrics_csv": "simulation_six_method_metrics.csv",
+    "arrays_npz": "simulation_six_method_arrays.npz"
+  }
+}

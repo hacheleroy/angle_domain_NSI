@@ -363,6 +363,18 @@ profile_das = pd_das_db[:, z_cross_idx]
 profile_conv = pd_conv_db[:, z_cross_idx]
 profile_angular = pd_angular_db[:, z_cross_idx]
 
+# Preserve derived display arrays for CPU figure regeneration after a fresh
+# reconstruction. Earlier published runs retained the rendered PNG.
+np.savez_compressed(
+    output_dir / "mbtrace_three_method_arrays.npz",
+    x_mm=x_mm,
+    z_mm=z_mm,
+    cross_section_depth_mm=np.asarray(z_cross_actual_mm),
+    das_db=pd_das_db,
+    receive_nsi_db=pd_conv_db,
+    angle_nsi_db=pd_angular_db,
+)
+
 trace_analysis = analyse_three_profiles(
     x_mm,
     profile_das,

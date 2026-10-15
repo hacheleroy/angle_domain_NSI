@@ -1,5 +1,7 @@
 # NSI validation protocol
 
+> Historical validation record. The final 15 October 2026 paper workflow is documented in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+
 These scripts reproduce the synchronized timing benchmark and robustness analyses reported in the manuscript and supplementary material. 
 
 ## Files

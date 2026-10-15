@@ -1,0 +1,4 @@
+method,cross_section_depth_mm,detected_peak_count,das_reference_peak_count,das_concordant_count_at_0p15_mm,das_concordant_fraction_at_0p15_mm,mean_matched_width_mm,sample_sd_matched_width_mm
+DAS,10.958579881656803,6,6,6,1.0,0.2855830471888026,0.05534525701609049
+Receive-NSI,10.958579881656803,6,6,5,0.8333333333333334,0.11105918717224306,0.04013318973690179
+Angle-NSI,10.958579881656803,7,6,3,0.5,0.18407208030978506,0.10266672387653392
