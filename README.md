@@ -1,7 +1,8 @@
 # Angle-domain null subtraction imaging
 
 Python implementation of **[Angle-domain null subtraction imaging
-from beamformed plane-wave data](https://arxiv.org/abs/2608.18252)**.
+from beamformed plane-wave data](https://iopscience.iop.org/article/10.1088/1361-6560/aebc08)**,
+published in *Physics in Medicine & Biology*.
 
 Angle-NSI operates on **complex receive-beamformed images retained separately
 for each transmit angle**. The core calculation runs on NumPy arrays without
@@ -187,16 +188,17 @@ and are not redistributed.
 If you use this code or imaging technique in your research, please cite:
 
 Henri Leroy (2026). **[Angle-domain null subtraction imaging from beamformed
-plane-wave data](https://arxiv.org/abs/2608.18252)**.
+plane-wave data](https://iopscience.iop.org/article/10.1088/1361-6560/aebc08)**.
+*Physics in Medicine & Biology*. DOI: [10.1088/1361-6560/aebc08](https://doi.org/10.1088/1361-6560/aebc08).
 
 ```bibtex
 @article{leroy2026angledomain,
   title   = {Angle-domain null subtraction imaging from beamformed plane-wave data},
   author  = {Leroy, Henri},
-  journal = {arXiv preprint arXiv:2608.18252},
+  journal = {Physics in Medicine \& Biology},
   year    = {2026},
-  doi     = {10.48550/arXiv.2608.18252},
-  url     = {https://arxiv.org/abs/2608.18252}
+  doi     = {10.1088/1361-6560/aebc08},
+  url     = {https://iopscience.iop.org/article/10.1088/1361-6560/aebc08}
 }
 ```
 

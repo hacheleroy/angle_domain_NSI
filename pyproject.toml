@@ -32,7 +32,7 @@ angle-nsi = "angle_nsi.cli:main"
 
 [project.urls]
 Repository = "https://github.com/hacheleroy/angle_domain_NSI"
-Paper = "https://arxiv.org/abs/2608.18252"
+Paper = "https://iopscience.iop.org/article/10.1088/1361-6560/aebc08"
 Issues = "https://github.com/hacheleroy/angle_domain_NSI/issues"
 
 [tool.setuptools.packages.find]
