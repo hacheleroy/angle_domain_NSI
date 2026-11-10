@@ -19,7 +19,10 @@ preferred-citation:
       orcid: "https://orcid.org/0009-0009-7215-6796"
   title: "Angle-domain null subtraction imaging from beamformed plane-wave data"
   year: 2026
-  date-published: "2026-10-30"
+  date-published: "2026-11-10"
   journal: "Physics in Medicine & Biology"
+  volume: "71"
+  issue: "21"
+  start: "21NT01"
   url: "https://iopscience.iop.org/article/10.1088/1361-6560/aebc08"
   doi: "10.1088/1361-6560/aebc08"
