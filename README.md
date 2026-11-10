@@ -189,7 +189,7 @@ If you use this code or imaging technique in your research, please cite:
 
 Henri Leroy (2026). **[Angle-domain null subtraction imaging from beamformed
 plane-wave data](https://iopscience.iop.org/article/10.1088/1361-6560/aebc08)**.
-*Physics in Medicine & Biology*. DOI: [10.1088/1361-6560/aebc08](https://doi.org/10.1088/1361-6560/aebc08).
+*Physics in Medicine & Biology*, **71**(21), 21NT01. DOI: [10.1088/1361-6560/aebc08](https://doi.org/10.1088/1361-6560/aebc08).
 
 ```bibtex
 @article{leroy2026angledomain,
@@ -197,6 +197,9 @@ plane-wave data](https://iopscience.iop.org/article/10.1088/1361-6560/aebc08)**.
   author  = {Leroy, Henri},
   journal = {Physics in Medicine \& Biology},
   year    = {2026},
+  volume  = {71},
+  number  = {21},
+  pages   = {21NT01},
   doi     = {10.1088/1361-6560/aebc08},
   url     = {https://iopscience.iop.org/article/10.1088/1361-6560/aebc08}
 }
